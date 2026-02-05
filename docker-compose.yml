@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: landgo-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=landgo
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=your-super-secret-jwt-key-must-be-at-least-256-bits-long
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - landgo-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: landgo-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=landgo
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d landgo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - landgo-network
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: landgo-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@landgo.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+    networks:
+      - landgo-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  landgo-network:
+    driver: bridge
