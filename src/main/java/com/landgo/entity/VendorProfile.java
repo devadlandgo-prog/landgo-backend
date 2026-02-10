@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +55,7 @@ public class VendorProfile extends BaseEntity {
     private boolean verified = false;
 
     @Column(name = "rating", precision = 3, scale = 2)
-    private Double rating;
+    private BigDecimal rating;
 
     @Column(name = "total_reviews")
     private Integer totalReviews = 0;

@@ -55,23 +55,23 @@ public class Land extends BaseEntity {
     private String country;
 
     @Column(name = "latitude", precision = 10, scale = 8)
-    private Double latitude;
+    private BigDecimal latitude;
 
     @Column(name = "longitude", precision = 11, scale = 8)
-    private Double longitude;
+    private BigDecimal longitude;
 
     // Specifications
     @Column(name = "price", nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
     @Column(name = "area_sq_ft", nullable = false, precision = 15, scale = 2)
-    private Double areaSqFt;
+    private BigDecimal areaSqFt;
 
     @Column(name = "frontage", precision = 10, scale = 2)
-    private Double frontage;
+    private BigDecimal frontage;
 
     @Column(name = "depth", precision = 10, scale = 2)
-    private Double depth;
+    private BigDecimal depth;
 
     // Features
     @Column(name = "has_water_access")
