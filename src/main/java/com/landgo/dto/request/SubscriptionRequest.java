@@ -20,5 +20,6 @@ public class SubscriptionRequest {
 
     private String paymentToken;
 
+    @Builder.Default
     private boolean autoRenew = false;
 }

@@ -30,14 +30,14 @@ public class LandResponse {
     private String state;
     private String zipCode;
     private String country;
-    private Double latitude;
-    private Double longitude;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     
     // Specifications
     private BigDecimal price;
-    private Double areaSqFt;
-    private Double frontage;
-    private Double depth;
+    private BigDecimal areaSqFt;
+    private BigDecimal frontage;
+    private BigDecimal depth;
     
     // Features
     private boolean hasWaterAccess;

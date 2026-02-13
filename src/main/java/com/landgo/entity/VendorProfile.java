@@ -52,18 +52,22 @@ public class VendorProfile extends BaseEntity {
     private String website;
 
     @Column(name = "verified")
+    @Builder.Default
     private boolean verified = false;
 
     @Column(name = "rating", precision = 3, scale = 2)
     private BigDecimal rating;
 
     @Column(name = "total_reviews")
+    @Builder.Default
     private Integer totalReviews = 0;
 
     @Column(name = "total_lands_listed")
+    @Builder.Default
     private Integer totalLandsListed = 0;
 
     @Column(name = "total_lands_sold")
+    @Builder.Default
     private Integer totalLandsSold = 0;
 
     @OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

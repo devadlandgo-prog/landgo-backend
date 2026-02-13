@@ -51,7 +51,7 @@ public class LandService {
         return landMapper.toResponse(land);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LandResponse getLandById(UUID landId) {
         Land land = landRepository.findByIdWithVendor(landId)
                 .orElseThrow(() -> new ResourceNotFoundException("Land", "id", landId));

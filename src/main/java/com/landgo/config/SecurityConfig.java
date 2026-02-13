@@ -33,16 +33,21 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configure(http))
+            .cors(cors -> {})
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/lands", "/api/v1/lands/{id}").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/vendors", "/api/v1/vendors/{id}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/lands", "/api/v1/lands/{id}",
+                        "/api/v1/lands/search", "/api/v1/lands/filter",
+                        "/api/v1/lands/recent", "/api/v1/lands/popular").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/vendors", "/api/v1/vendors/{id}",
+                        "/api/v1/vendors/search").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // Vendor registration - any authenticated user can register as vendor
+                .requestMatchers(HttpMethod.POST, "/api/v1/vendor/register").authenticated()
                 // Vendor endpoints
                 .requestMatchers("/api/v1/vendor/**").hasRole("VENDOR")
                 // Admin endpoints

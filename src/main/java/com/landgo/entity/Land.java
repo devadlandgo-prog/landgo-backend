@@ -36,6 +36,7 @@ public class Land extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
     private LandStatus status = LandStatus.PENDING_APPROVAL;
 
     // Location
@@ -108,8 +109,10 @@ public class Land extends BaseEntity {
 
     // Metrics
     @Column(name = "view_count")
+    @Builder.Default
     private Integer viewCount = 0;
 
     @Column(name = "inquiry_count")
+    @Builder.Default
     private Integer inquiryCount = 0;
 }

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -26,7 +27,7 @@ public class VendorResponse {
     private String businessCountry;
     private String website;
     private boolean verified;
-    private Double rating;
+    private BigDecimal rating;
     private Integer totalReviews;
     private Integer totalLandsListed;
     private Integer totalLandsSold;

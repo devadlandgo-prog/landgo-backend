@@ -32,6 +32,7 @@ public class RegisterRequest {
 
     private String phone;
 
+    @Builder.Default
     private AuthProvider authProvider = AuthProvider.EMAIL;
 
     private String providerId;

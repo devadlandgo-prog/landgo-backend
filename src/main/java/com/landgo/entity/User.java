@@ -38,6 +38,7 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
     private AuthProvider authProvider = AuthProvider.EMAIL;
 
     @Column(name = "provider_id")
@@ -45,12 +46,15 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
+    @Builder.Default
     private Role role = Role.USER;
 
     @Column(name = "email_verified")
+    @Builder.Default
     private boolean emailVerified = false;
 
     @Column(name = "active")
+    @Builder.Default
     private boolean active = true;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

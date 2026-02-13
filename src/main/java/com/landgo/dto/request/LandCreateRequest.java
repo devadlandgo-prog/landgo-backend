@@ -40,9 +40,9 @@ public class LandCreateRequest {
     @NotBlank(message = "Country is required")
     private String country;
 
-    private Double latitude;
+    private BigDecimal latitude;
 
-    private Double longitude;
+    private BigDecimal longitude;
 
     @NotNull(message = "Price is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
@@ -50,11 +50,11 @@ public class LandCreateRequest {
 
     @NotNull(message = "Area is required")
     @Positive(message = "Area must be positive")
-    private Double areaSqFt;
+    private BigDecimal areaSqFt;
 
-    private Double frontage;
+    private BigDecimal frontage;
 
-    private Double depth;
+    private BigDecimal depth;
 
     private boolean hasWaterAccess;
 

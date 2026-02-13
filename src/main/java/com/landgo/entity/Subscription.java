@@ -28,6 +28,7 @@ public class Subscription extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
     private SubscriptionStatus status = SubscriptionStatus.PENDING;
 
     @Column(name = "start_date", nullable = false)
@@ -46,6 +47,7 @@ public class Subscription extends BaseEntity {
     private String paymentReference;
 
     @Column(name = "auto_renew")
+    @Builder.Default
     private boolean autoRenew = false;
 
     // Feature limits
@@ -56,9 +58,11 @@ public class Subscription extends BaseEntity {
     private Integer maxSavedLands;
 
     @Column(name = "can_access_premium_listings")
+    @Builder.Default
     private boolean canAccessPremiumListings = false;
 
     @Column(name = "can_contact_vendor_directly")
+    @Builder.Default
     private boolean canContactVendorDirectly = false;
 
     // Cancellation

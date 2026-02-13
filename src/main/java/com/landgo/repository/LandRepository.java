@@ -35,8 +35,10 @@ public interface LandRepository extends JpaRepository<Land, UUID>, JpaSpecificat
     Page<Land> searchLands(@Param("search") String search, Pageable pageable);
 
     @Query("SELECT l FROM Land l WHERE l.status = 'ACTIVE' AND l.deleted = false AND " +
-           "l.city = :city AND l.landType = :type AND " +
-           "l.price BETWEEN :minPrice AND :maxPrice")
+           "(:city IS NULL OR l.city = :city) AND " +
+           "(:type IS NULL OR l.landType = :type) AND " +
+           "(:minPrice IS NULL OR l.price >= :minPrice) AND " +
+           "(:maxPrice IS NULL OR l.price <= :maxPrice)")
     Page<Land> findByFilters(@Param("city") String city,
                              @Param("type") LandType type,
                              @Param("minPrice") BigDecimal minPrice,
