@@ -1,0 +1,30 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Docs
+docs/
+README.md
+LICENSE
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS configs (not needed in app image)
+aws/

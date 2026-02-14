@@ -1,0 +1,1349 @@
+{
+	"info": {
+		"_postman_id": "landgo-api-collection-v1",
+		"name": "LandGo Backend API",
+		"description": "Complete API collection for LandGo land listing platform.\n\n## Setup Instructions\n1. Import this collection into Postman\n2. Create an environment called 'LandGo Local'\n3. Add variable: `BASE_URL` = `http://localhost:8080`\n4. Run requests in order: Register → Login → Subscribe → Vendor Register → Re-Login → Create Land\n\n## Important Notes\n- After vendor registration, you MUST re-login to get a token with VENDOR role\n- New land listings are created with status PENDING_APPROVAL\n- Only ACTIVE lands appear in public browse endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "BASE_URL",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "TOKEN",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "LAND_ID",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "VENDOR_ID",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "🏥 Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/actuator/health",
+							"host": ["{{BASE_URL}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Check if the application is running and healthy."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔐 Authentication",
+			"item": [
+				{
+					"name": "1. Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.accessToken) {",
+									"    pm.collectionVariables.set('TOKEN', response.data.accessToken);",
+									"    console.log('✅ Token saved to collection variable');",
+									"}",
+									"",
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has access token', function () {",
+									"    pm.expect(response.data.accessToken).to.not.be.empty;",
+									"});",
+									"",
+									"pm.test('User role is USER', function () {",
+									"    pm.expect(response.data.user.role).to.eql('USER');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/register",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "register"]
+						},
+						"description": "Register a new user with email and password. The access token is automatically saved for subsequent requests."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.accessToken) {",
+									"    pm.collectionVariables.set('TOKEN', response.data.accessToken);",
+									"    console.log('✅ Token updated');",
+									"}",
+									"",
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has access token', function () {",
+									"    pm.expect(response.data.accessToken).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/login",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Login with email and password. The access token is automatically saved."
+					},
+					"response": []
+				},
+				{
+					"name": "3. OAuth2 Login (Google)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"YOUR_GOOGLE_ID_TOKEN_HERE\",\n  \"authProvider\": \"GOOGLE\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/oauth2",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "oauth2"]
+						},
+						"description": "Login or register using a Google ID token. Replace the token value with a real Google ID token."
+					},
+					"response": []
+				},
+				{
+					"name": "4. OAuth2 Login (Apple)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"YOUR_APPLE_ID_TOKEN_HERE\",\n  \"authProvider\": \"APPLE\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/oauth2",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "oauth2"]
+						},
+						"description": "Login or register using an Apple ID token. Replace the token value with a real Apple ID token."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Get Current User (Me)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Response has user data', function () {",
+									"    pm.expect(response.data.email).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/me",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Get the currently authenticated user's profile. Requires a valid JWT token."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📋 Subscriptions",
+			"item": [
+				{
+					"name": "1. Subscribe to Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Subscription is active', function () {",
+									"    pm.expect(response.data.status).to.eql('ACTIVE');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"PREMIUM\",\n  \"paymentMethod\": \"credit_card\",\n  \"paymentToken\": \"tok_visa_123\",\n  \"autoRenew\": true\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/subscriptions",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "subscriptions"]
+						},
+						"description": "Subscribe to a plan. Available plans: FREE, BASIC, PREMIUM, ENTERPRISE.\n\nPricing:\n- FREE: $0 (unlimited)\n- BASIC: $9.99/30 days\n- PREMIUM: $29.99/30 days\n- ENTERPRISE: $99.99/365 days"
+					},
+					"response": []
+				},
+				{
+					"name": "2. Get Current Subscription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/subscriptions/current",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "subscriptions", "current"]
+						},
+						"description": "Get the current user's active subscription details."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Cancel Subscription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Subscription is cancelled', function () {",
+									"    pm.expect(response.data.status).to.eql('CANCELLED');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/subscriptions/cancel?reason=Testing cancellation",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "subscriptions", "cancel"],
+							"query": [
+								{
+									"key": "reason",
+									"value": "Testing cancellation",
+									"description": "Optional cancellation reason"
+								}
+							]
+						},
+						"description": "Cancel the current active subscription. Optionally provide a reason."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🏪 Vendor Management",
+			"item": [
+				{
+					"name": "1. Register as Vendor",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.id) {",
+									"    pm.collectionVariables.set('VENDOR_ID', response.data.id);",
+									"    console.log('✅ Vendor ID saved: ' + response.data.id);",
+									"}",
+									"",
+									"pm.test('Vendor profile created', function () {",
+									"    pm.expect(response.data.companyName).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"companyName\": \"LandCorp\",\n  \"companyDescription\": \"Premium land deals across Texas\",\n  \"companyLogo\": \"https://example.com/logo.png\",\n  \"businessLicense\": \"TX-LIC-2026-001\",\n  \"businessAddress\": \"123 Main Street\",\n  \"businessCity\": \"Austin\",\n  \"businessState\": \"Texas\",\n  \"businessZipCode\": \"73301\",\n  \"businessCountry\": \"USA\",\n  \"website\": \"https://landcorp.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/register",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "register"]
+						},
+						"description": "Register the current user as a vendor. This changes the user's role from USER to VENDOR.\n\n⚠️ IMPORTANT: After this, you MUST re-login (use Login request) to get a new JWT token with the VENDOR role. The old token still has the USER role."
+					},
+					"response": []
+				},
+				{
+					"name": "2. ⚠️ Re-Login After Vendor Registration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.accessToken) {",
+									"    pm.collectionVariables.set('TOKEN', response.data.accessToken);",
+									"    console.log('✅ Token updated with VENDOR role');",
+									"}",
+									"",
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('User role is now VENDOR', function () {",
+									"    pm.expect(response.data.user.role).to.eql('VENDOR');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/login",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "⚠️ CRITICAL STEP: After vendor registration, you must re-login to get a new JWT token that contains the VENDOR role. Without this, vendor-only endpoints will return 403 Forbidden."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Get My Vendor Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Has company name', function () {",
+									"    pm.expect(response.data.companyName).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/profile",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "profile"]
+						},
+						"description": "Get the current vendor's own profile. Requires VENDOR role."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Update Vendor Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"companyName\": \"LandCorp Premium\",\n  \"companyDescription\": \"The #1 land marketplace in Texas - Updated\",\n  \"companyLogo\": \"https://example.com/new-logo.png\",\n  \"businessLicense\": \"TX-LIC-2026-002\",\n  \"businessAddress\": \"789 New Street, Suite 200\",\n  \"businessCity\": \"Austin\",\n  \"businessState\": \"Texas\",\n  \"businessZipCode\": \"73301\",\n  \"businessCountry\": \"USA\",\n  \"website\": \"https://landcorp-premium.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/profile",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "profile"]
+						},
+						"description": "Update the current vendor's profile. Requires VENDOR role."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Get All Vendors (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendors?page=0&size=20",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendors"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size"
+								}
+							]
+						},
+						"description": "Get all verified vendors. This is a public endpoint — no auth required. Only vendors with verified=true are returned."
+					},
+					"response": []
+				},
+				{
+					"name": "6. Get Vendor by ID (Requires Subscription)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendors/{{VENDOR_ID}}",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendors", "{{VENDOR_ID}}"]
+						},
+						"description": "Get vendor details by ID. Requires authentication AND an active paid subscription (not FREE plan). Returns 403 if user has no paid subscription."
+					},
+					"response": []
+				},
+				{
+					"name": "7. Search Vendors (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendors/search?query=LandCorp&page=0&size=20",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendors", "search"],
+							"query": [
+								{
+									"key": "query",
+									"value": "LandCorp",
+									"description": "Search by company name or city"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Search vendors by company name or business city. Case-insensitive. Public endpoint."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🏠 Land Listings - Public",
+			"item": [
+				{
+					"name": "1. Get All Active Lands",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands?page=0&size=20&sort=createdAt,desc",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt,desc",
+									"description": "Sort field and direction"
+								}
+							]
+						},
+						"description": "Browse all active land listings. Public endpoint — no auth required. Only lands with status=ACTIVE are returned. Supports pagination and sorting."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Get Land by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/{{LAND_ID}}",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "{{LAND_ID}}"]
+						},
+						"description": "Get detailed information about a specific land listing. Public endpoint. Side effect: increments the viewCount by 1."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Search Lands",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/search?query=Austin&page=0&size=20",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "search"],
+							"query": [
+								{
+									"key": "query",
+									"value": "Austin",
+									"description": "Search keyword (searches in title, city, state)"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Search land listings by keyword. Searches in title, city, and state fields (case-insensitive). Public endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Filter Lands",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/filter?city=Austin&type=RESIDENTIAL&minPrice=100000&maxPrice=500000&page=0&size=20",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "filter"],
+							"query": [
+								{
+									"key": "city",
+									"value": "Austin",
+									"description": "Filter by city (optional)"
+								},
+								{
+									"key": "type",
+									"value": "RESIDENTIAL",
+									"description": "Filter by land type: RESIDENTIAL, COMMERCIAL, AGRICULTURAL, INDUSTRIAL, MIXED_USE (optional)"
+								},
+								{
+									"key": "minPrice",
+									"value": "100000",
+									"description": "Minimum price (optional)"
+								},
+								{
+									"key": "maxPrice",
+									"value": "500000",
+									"description": "Maximum price (optional)"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Filter land listings by multiple criteria. All parameters are optional — pass only the ones you want to filter by. Public endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Get Recent Listings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/recent?limit=10",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "recent"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of listings to return (default: 10)"
+								}
+							]
+						},
+						"description": "Get the most recently created active land listings. Public endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "6. Get Popular Listings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/popular?limit=10",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "popular"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of listings to return (default: 10)"
+								}
+							]
+						},
+						"description": "Get the most viewed (popular) active land listings, sorted by viewCount descending. Public endpoint."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🏗️ Land Listings - Vendor",
+			"item": [
+				{
+					"name": "1. Create Land Listing",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.id) {",
+									"    pm.collectionVariables.set('LAND_ID', response.data.id);",
+									"    console.log('✅ Land ID saved: ' + response.data.id);",
+									"}",
+									"",
+									"pm.test('Land status is PENDING_APPROVAL', function () {",
+									"    pm.expect(response.data.status).to.eql('PENDING_APPROVAL');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Beautiful Residential Plot in Austin\",\n  \"description\": \"A stunning 5000 sq ft residential plot with all utilities connected. Perfect for building your dream home.\",\n  \"landType\": \"RESIDENTIAL\",\n  \"address\": \"456 Oak Avenue\",\n  \"city\": \"Austin\",\n  \"state\": \"Texas\",\n  \"zipCode\": \"73301\",\n  \"country\": \"USA\",\n  \"latitude\": 30.2672,\n  \"longitude\": -97.7431,\n  \"price\": 150000.00,\n  \"areaSqFt\": 5000.00,\n  \"frontage\": 50.00,\n  \"depth\": 100.00,\n  \"hasWaterAccess\": true,\n  \"hasElectricity\": true,\n  \"hasRoadAccess\": true,\n  \"hasSewage\": false,\n  \"zoningInfo\": \"R-1 Residential\",\n  \"topography\": \"Flat terrain\",\n  \"soilType\": \"Loamy\",\n  \"imageUrls\": [\n    \"https://example.com/land1.jpg\",\n    \"https://example.com/land2.jpg\"\n  ],\n  \"videoUrl\": \"https://example.com/tour-video.mp4\",\n  \"virtualTourUrl\": \"https://example.com/virtual-tour\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/lands",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "lands"]
+						},
+						"description": "Create a new land listing. Requires VENDOR role.\n\nNew listings are created with status=PENDING_APPROVAL.\n\nLand Types: RESIDENTIAL, COMMERCIAL, AGRICULTURAL, INDUSTRIAL, MIXED_USE"
+					},
+					"response": []
+				},
+				{
+					"name": "2. Get My Land Listings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/lands?page=0&size=20",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "lands"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get all land listings created by the current vendor. Requires VENDOR role. Returns lands of all statuses."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Update Land Listing",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"UPDATED - Premium Residential Plot in Austin\",\n  \"description\": \"Updated description: A stunning 5000 sq ft plot, now with sewage connection.\",\n  \"landType\": \"RESIDENTIAL\",\n  \"address\": \"456 Oak Avenue\",\n  \"city\": \"Austin\",\n  \"state\": \"Texas\",\n  \"zipCode\": \"73301\",\n  \"country\": \"USA\",\n  \"latitude\": 30.2672,\n  \"longitude\": -97.7431,\n  \"price\": 165000.00,\n  \"areaSqFt\": 5000.00,\n  \"frontage\": 50.00,\n  \"depth\": 100.00,\n  \"hasWaterAccess\": true,\n  \"hasElectricity\": true,\n  \"hasRoadAccess\": true,\n  \"hasSewage\": true,\n  \"zoningInfo\": \"R-1 Residential\",\n  \"topography\": \"Flat terrain\",\n  \"soilType\": \"Loamy\",\n  \"imageUrls\": [\n    \"https://example.com/land1-updated.jpg\",\n    \"https://example.com/land2-updated.jpg\",\n    \"https://example.com/land3-new.jpg\"\n  ],\n  \"videoUrl\": \"https://example.com/tour-video-v2.mp4\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/lands/{{LAND_ID}}",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "lands", "{{LAND_ID}}"]
+						},
+						"description": "Update an existing land listing. Requires VENDOR role and must be the owner of the listing. Returns 403 if you're not the owner."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Delete Land Listing",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/lands/{{LAND_ID}}",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "lands", "{{LAND_ID}}"]
+						},
+						"description": "Soft-delete a land listing (sets deleted=true). Requires VENDOR role and must be the owner. The land won't appear in any queries after deletion."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "❌ Negative Test Cases",
+			"item": [
+				{
+					"name": "Register with Duplicate Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Error message mentions email', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('email');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"9876543210\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/register",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "register"]
+						},
+						"description": "Try to register with an email that's already taken. Should return 400."
+					},
+					"response": []
+				},
+				{
+					"name": "Login with Wrong Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/login",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Try to login with an incorrect password. Should return 401."
+					},
+					"response": []
+				},
+				{
+					"name": "Access Protected Endpoint Without Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/me",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Try to access a protected endpoint without providing a JWT token. Should return 401."
+					},
+					"response": []
+				},
+				{
+					"name": "Access Vendor Endpoint as USER",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 403', function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}",
+								"description": "Use a USER-role token here (before vendor registration)"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Test Land\",\n  \"description\": \"Should fail\",\n  \"landType\": \"RESIDENTIAL\",\n  \"address\": \"123 Test St\",\n  \"city\": \"Test\",\n  \"state\": \"TX\",\n  \"zipCode\": \"12345\",\n  \"country\": \"USA\",\n  \"price\": 100000,\n  \"areaSqFt\": 1000\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/vendor/lands",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "vendor", "lands"]
+						},
+						"description": "Try to create a land listing with a USER-role token (not VENDOR). Should return 403. Note: This only works if you use a token from before vendor registration."
+					},
+					"response": []
+				},
+				{
+					"name": "Register with Invalid Data (Validation)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"J\",\n  \"lastName\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"short\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/register",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "register"]
+						},
+						"description": "Try to register with invalid data. firstName too short, lastName empty, invalid email, password too short. Should return 400 with validation errors."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Non-Existent Land",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/lands/00000000-0000-0000-0000-000000000000",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "lands", "00000000-0000-0000-0000-000000000000"]
+						},
+						"description": "Try to get a land listing that doesn't exist. Should return 404."
+					},
+					"response": []
+				},
+				{
+					"name": "Subscribe When Already Subscribed",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{TOKEN}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"BASIC\",\n  \"paymentMethod\": \"credit_card\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/subscriptions",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "subscriptions"]
+						},
+						"description": "Try to subscribe when you already have an active subscription. Should return 400."
+					},
+					"response": []
+				},
+				{
+					"name": "Access with Expired/Invalid Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE2MDAwMDAwMDF9.invalid"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/me",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Try to access a protected endpoint with an invalid/expired JWT token. Should return 401."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
