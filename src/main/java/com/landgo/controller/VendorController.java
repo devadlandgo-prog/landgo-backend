@@ -65,7 +65,7 @@ public class VendorController {
     }
 
     @GetMapping("/vendor/profile")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
     @Operation(summary = "Get my vendor profile", description = "Get current vendor's profile")
     public ResponseEntity<ApiResponse<VendorResponse>> getMyVendorProfile(
             @CurrentUser UserPrincipal userPrincipal) {
@@ -74,7 +74,7 @@ public class VendorController {
     }
 
     @PutMapping("/vendor/profile")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
     @Operation(summary = "Update vendor profile", description = "Update current vendor's profile")
     public ResponseEntity<ApiResponse<VendorResponse>> updateVendorProfile(
             @CurrentUser UserPrincipal userPrincipal,

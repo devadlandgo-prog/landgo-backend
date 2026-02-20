@@ -1,17 +1,22 @@
 package com.landgo.service;
 
+import com.landgo.dto.request.ForgotPasswordRequest;
 import com.landgo.dto.request.LoginRequest;
 import com.landgo.dto.request.OAuth2Request;
 import com.landgo.dto.request.RegisterRequest;
+import com.landgo.dto.request.ResetPasswordRequest;
 import com.landgo.dto.response.AuthResponse;
 import com.landgo.dto.response.UserResponse;
+import com.landgo.entity.PasswordResetToken;
 import com.landgo.entity.User;
 import com.landgo.enums.AuthProvider;
 import com.landgo.enums.Role;
+import com.landgo.enums.UserType;
 import com.landgo.exception.BadRequestException;
 import com.landgo.exception.ResourceNotFoundException;
 import com.landgo.factory.OAuth2StrategyFactory;
 import com.landgo.mapper.UserMapper;
+import com.landgo.repository.PasswordResetTokenRepository;
 import com.landgo.repository.UserRepository;
 import com.landgo.security.JwtTokenProvider;
 import com.landgo.security.UserPrincipal;
@@ -26,6 +31,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,6 +45,8 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final OAuth2StrategyFactory oAuth2StrategyFactory;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -44,13 +54,42 @@ public class AuthService {
             throw new BadRequestException("Email already registered");
         }
 
+        // Validate agent-specific fields
+        if (request.getUserType() == UserType.AGENT) {
+            if (request.getAgencyName() == null || request.getAgencyName().isBlank()) {
+                throw new BadRequestException("Agency name is required for agent registration");
+            }
+            if (request.getRecoLicenseNumber() == null || request.getRecoLicenseNumber().isBlank()) {
+                throw new BadRequestException("RECO license number is required for agent registration");
+            }
+            if (request.getAgentAuthorizationAccepted() == null || !request.getAgentAuthorizationAccepted()) {
+                throw new BadRequestException("Agent authorization must be accepted");
+            }
+        }
+
+        // Split fullName into firstName/lastName for backward compatibility
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            String[] parts = request.getFullName().trim().split("\\s+", 2);
+            request.setFirstName(parts[0]);
+            request.setLastName(parts.length > 1 ? parts[1] : "");
+        }
+
         User user = userMapper.toEntity(request);
-        user.setRole(Role.USER);
         user.setAuthProvider(AuthProvider.EMAIL);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
+        // Set role based on user type
+        if (request.getUserType() == UserType.AGENT) {
+            user.setRole(Role.AGENT);
+            user.setUserType(UserType.AGENT);
+            user.setAgentAuthorizationAccepted(true);
+        } else {
+            user.setRole(Role.SELLER);
+            user.setUserType(UserType.SELLER);
+        }
+
         user = userRepository.save(user);
-        log.info("User registered: {}", user.getEmail());
+        log.info("{} registered: {}", request.getUserType(), user.getEmail());
 
         return generateAuthResponse(user);
     }
@@ -82,7 +121,8 @@ public class AuthService {
                     }
                     RegisterRequest registerRequest = strategy.toRegisterRequest(userInfo);
                     User newUser = userMapper.toEntity(registerRequest);
-                    newUser.setRole(Role.USER);
+                    newUser.setRole(Role.SELLER);
+                    newUser.setUserType(UserType.SELLER);
                     newUser.setAuthProvider(request.getAuthProvider());
                     newUser.setProviderId(userInfo.getProviderId());
                     newUser.setEmailVerified(true);
@@ -112,5 +152,68 @@ public class AuthService {
         User user = userRepository.findById(userPrincipal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return userMapper.toResponse(user);
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("No account found with this email address"));
+
+        // Only allow password reset for EMAIL auth provider
+        if (user.getAuthProvider() != AuthProvider.EMAIL) {
+            throw new BadRequestException(
+                    "This account uses " + user.getAuthProvider().name() + " sign-in. Please use " +
+                    user.getAuthProvider().name() + " to access your account.");
+        }
+
+        // Invalidate any existing tokens for this user
+        passwordResetTokenRepository.invalidateAllTokensForUser(user);
+
+        // Generate a new reset token (UUID-based, 30 min expiry)
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(30))
+                .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // Send the reset email
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), token);
+        log.info("Password reset token generated for user: {}", user.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public void validateResetToken(String token) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired password reset link"));
+
+        if (resetToken.isExpired()) {
+            throw new BadRequestException("Password reset link has expired. Please request a new one.");
+        }
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(request.getToken())
+                .orElseThrow(() -> new BadRequestException("Invalid or expired password reset link"));
+
+        if (resetToken.isExpired()) {
+            throw new BadRequestException("Password reset link has expired. Please request a new one.");
+        }
+
+        // Update the user's password
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Mark token as used
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Invalidate all other tokens for this user
+        passwordResetTokenRepository.invalidateAllTokensForUser(user);
+
+        log.info("Password reset successfully for user: {}", user.getEmail());
     }
 }

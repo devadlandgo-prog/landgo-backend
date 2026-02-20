@@ -44,7 +44,10 @@ public class VendorService {
         VendorProfile vendorProfile = vendorMapper.toEntity(request);
         vendorProfile.setUser(user);
 
-        user.setRole(Role.VENDOR);
+        // Only upgrade role to VENDOR if user is not already an AGENT
+        if (user.getRole() != Role.AGENT) {
+            user.setRole(Role.VENDOR);
+        }
         user.setVendorProfile(vendorProfile);
 
         userRepository.save(user);

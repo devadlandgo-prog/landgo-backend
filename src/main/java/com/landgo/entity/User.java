@@ -2,6 +2,7 @@ package com.landgo.entity;
 
 import com.landgo.enums.AuthProvider;
 import com.landgo.enums.Role;
+import com.landgo.enums.UserType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -18,10 +19,18 @@ import java.util.Set;
 @AllArgsConstructor
 public class User extends BaseEntity {
 
-    @Column(name = "first_name", nullable = false, length = 50)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type", nullable = false, length = 20)
+    @Builder.Default
+    private UserType userType = UserType.SELLER;
+
+    @Column(name = "full_name", nullable = false, length = 100)
+    private String fullName;
+
+    @Column(name = "first_name", length = 50)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false, length = 50)
+    @Column(name = "last_name", length = 50)
     private String lastName;
 
     @Column(name = "email", nullable = false, unique = true)
@@ -47,7 +56,7 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     @Builder.Default
-    private Role role = Role.USER;
+    private Role role = Role.SELLER;
 
     @Column(name = "email_verified")
     @Builder.Default
@@ -56,6 +65,20 @@ public class User extends BaseEntity {
     @Column(name = "active")
     @Builder.Default
     private boolean active = true;
+
+    // --- Agent-specific fields ---
+
+    @Column(name = "agency_name", length = 200)
+    private String agencyName;
+
+    @Column(name = "reco_license_number", length = 50)
+    private String recoLicenseNumber;
+
+    @Column(name = "agent_authorization_accepted")
+    @Builder.Default
+    private boolean agentAuthorizationAccepted = false;
+
+    // --- Relationships ---
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private VendorProfile vendorProfile;
@@ -73,10 +96,21 @@ public class User extends BaseEntity {
     private Set<Land> savedLands = new HashSet<>();
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        if (fullName != null && !fullName.isBlank()) {
+            return fullName;
+        }
+        return (firstName != null ? firstName : "") + " " + (lastName != null ? lastName : "");
     }
 
     public boolean isVendor() {
         return role == Role.VENDOR || vendorProfile != null;
+    }
+
+    public boolean isAgent() {
+        return userType == UserType.AGENT || role == Role.AGENT;
+    }
+
+    public boolean canListLands() {
+        return (role == Role.VENDOR || role == Role.AGENT) && vendorProfile != null;
     }
 }

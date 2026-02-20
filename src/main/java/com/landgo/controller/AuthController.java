@@ -1,8 +1,10 @@
 package com.landgo.controller;
 
+import com.landgo.dto.request.ForgotPasswordRequest;
 import com.landgo.dto.request.LoginRequest;
 import com.landgo.dto.request.OAuth2Request;
 import com.landgo.dto.request.RegisterRequest;
+import com.landgo.dto.request.ResetPasswordRequest;
 import com.landgo.dto.response.ApiResponse;
 import com.landgo.dto.response.AuthResponse;
 import com.landgo.dto.response.UserResponse;
@@ -52,5 +54,26 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@CurrentUser UserPrincipal userPrincipal) {
         UserResponse response = authService.getCurrentUser(userPrincipal);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Forgot password", description = "Send a password reset link to the user's email address")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset link has been sent to your email", null));
+    }
+
+    @GetMapping("/reset-password/validate")
+    @Operation(summary = "Validate reset token", description = "Check if a password reset token is valid and not expired")
+    public ResponseEntity<ApiResponse<Void>> validateResetToken(@RequestParam String token) {
+        authService.validateResetToken(token);
+        return ResponseEntity.ok(ApiResponse.success("Token is valid", null));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password", description = "Reset the user's password using the token received via email")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully. You can now login with your new password.", null));
     }
 }

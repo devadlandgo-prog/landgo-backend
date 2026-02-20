@@ -48,8 +48,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // Vendor registration - any authenticated user can register as vendor
                 .requestMatchers(HttpMethod.POST, "/api/v1/vendor/register").authenticated()
-                // Vendor endpoints
-                .requestMatchers("/api/v1/vendor/**").hasRole("VENDOR")
+                // Vendor endpoints - accessible by VENDOR and AGENT roles
+                .requestMatchers("/api/v1/vendor/**").hasAnyRole("VENDOR", "AGENT")
                 // Admin endpoints
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // All other endpoints require authentication

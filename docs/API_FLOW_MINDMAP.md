@@ -1,7 +1,7 @@
 # LandGo Backend - API Flow Mind Map
 
-> **Version:** 1.0.0  
-> **Last Updated:** 13 February 2026
+> **Version:** 1.1.0  
+> **Last Updated:** 14 February 2026
 
 ---
 
@@ -25,8 +25,10 @@
      ┌──────────────────────┐  ┌────────────────────┐  ┌────────────────────────┐
      │ • Auth (register,    │  │ • Auth (me)        │  │ • Vendor land CRUD     │
      │   login, oauth2)     │  │ • Subscriptions    │  │ • Vendor profile mgmt  │
-     │ • Browse lands       │  │ • Vendor details   │  │ • Admin (future)       │
-     │ • Search & Filter    │  │ • Vendor register  │  │                        │
+     │ • Forgot/Reset       │  │ • Vendor details   │  │ • Admin (future)       │
+     │   password            │  │ • Vendor register  │  │                        │
+     │ • Browse lands       │  │                    │  │                        │
+     │ • Search & Filter    │  │                    │  │                        │
      │ • Browse vendors     │  │                    │  │                        │
      │ • Swagger UI         │  │                    │  │                        │
      │ • Health check       │  │                    │  │                        │
@@ -141,7 +143,88 @@
 
 ---
 
-## 4. JWT Security Filter Flow
+## 4. Password Reset Flow
+
+```
+    Client                    Server                     Database              Email
+      │                         │                           │                    │
+      │  1. POST /auth/         │                           │                    │
+      │     forgot-password     │                           │                    │
+      │  {email: "user@..."}   │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │                         │  Find user by email       │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │  ◀─── user (EMAIL only)   │                    │
+      │                         │                           │                    │
+      │                         │  Invalidate old tokens    │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │                           │                    │
+      │                         │  Generate UUID token      │                    │
+      │                         │  (30-min expiry)          │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │  INSERT password_reset_   │                    │
+      │                         │  tokens                   │                    │
+      │                         │                           │                    │
+      │                         │  Send email (async)       │                    │
+      │                         │ ──────────────────────────│───────────────▶    │
+      │                         │                           │    HTML email with │
+      │  ◀── 200 "Reset link   │                           │    reset link      │
+      │       sent to email"    │                           │                    │
+      │                         │                           │                    │
+      │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │─ ─ ─ ─ ─ ─ ─ ─   │
+      │  User clicks link from email                       │                    │
+      │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │─ ─ ─ ─ ─ ─ ─ ─   │
+      │                         │                           │                    │
+      │  2. GET /auth/reset-    │                           │                    │
+      │     password/validate   │                           │                    │
+      │     ?token={uuid}       │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │                         │  Find token (unused)      │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │  ◀─── token record        │                    │
+      │                         │  Check: !expired          │                    │
+      │  ◀── 200 "Token valid"  │                           │                    │
+      │                         │                           │                    │
+      │  3. POST /auth/         │                           │                    │
+      │     reset-password      │                           │                    │
+      │  {token, newPassword}   │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │                         │  Validate token again     │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │                           │                    │
+      │                         │  UPDATE user.password     │                    │
+      │                         │  (BCrypt encoded)         │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │                           │                    │
+      │                         │  Mark token used=true     │                    │
+      │                         │  Invalidate other tokens  │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │  ◀── 200 "Password     │                           │                    │
+      │       reset successful" │                           │                    │
+      │                         │                           │                    │
+      │  4. POST /auth/login    │                           │                    │
+      │  {email, newPassword}   │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │  ◀── JWT tokens ─────── │                           │                    │
+      │                         │                           │                    │
+
+     ┌───────────────────────────────────────────────────────────────┐
+     │ PASSWORD RESET RULES                                         │
+     │                                                              │
+     │  • Only EMAIL auth provider users (not Google/Apple)         │
+     │  • Token expires after 30 minutes                            │
+     │  • Token is single-use (marked as used after reset)          │
+     │  • Old unused tokens are invalidated on new request          │
+     │  • New password must be at least 8 characters                │
+     │  • Response is always 200 to prevent email enumeration       │
+     │  • Email sent asynchronously (@Async) for fast response      │
+     │  • Reset URL: http://localhost:3000/reset-password?token=    │
+     └───────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. JWT Security Filter Flow
 
 ```
         ┌─────────────────────────────────────────────────────────┐
@@ -206,7 +289,7 @@
 
 ---
 
-## 5. Land Listing Lifecycle
+## 6. Land Listing Lifecycle
 
 ```
      ┌────────────┐        ┌───────────────────┐        ┌────────────┐
@@ -232,7 +315,7 @@
 
 ---
 
-## 6. Subscription Access Control
+## 7. Subscription Access Control
 
 ```
                           ┌────────────────┐
@@ -289,7 +372,7 @@
 
 ---
 
-## 7. OAuth2 Strategy Pattern
+## 8. OAuth2 Strategy Pattern
 
 ```
                        ┌──────────────────────┐
@@ -337,7 +420,7 @@
 
 ---
 
-## 8. Complete Endpoint Map
+## 9. Complete Endpoint Map
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -347,6 +430,9 @@
 │  POST   /api/v1/auth/register           Register new user                 │
 │  POST   /api/v1/auth/login              Email/password login              │
 │  POST   /api/v1/auth/oauth2             Google/Apple OAuth2               │
+│  POST   /api/v1/auth/forgot-password    Request password reset            │
+│  GET    /api/v1/auth/reset-password/validate  Validate reset token        │
+│  POST   /api/v1/auth/reset-password     Reset password with token         │
 │  GET    /api/v1/lands                   Browse all active lands           │
 │  GET    /api/v1/lands/{id}              View single land (+ view count)   │
 │  GET    /api/v1/lands/search            Search lands by keyword           │
@@ -388,7 +474,7 @@
 
 ---
 
-## 9. Data Model Relationship Map
+## 10. Data Model Relationship Map
 
 ```
                            ┌──────────────────┐
@@ -454,6 +540,7 @@
     │                                                   │
     │  User ──(1:1)──▶ VendorProfile                   │
     │  User ──(1:1)──▶ Subscription                    │
+    │  User ──(1:N)──▶ PasswordResetToken              │
     │  User ──(M:N)──▶ Saved Lands (via join table)    │
     │  VendorProfile ──(1:N)──▶ Land                   │
     └───────────────────────────────────────────────────┘
@@ -461,7 +548,7 @@
 
 ---
 
-## 10. Testing Flow Sequence Diagram
+## 11. Testing Flow Sequence Diagram
 
 ```
     Client                     Server                    Database
@@ -480,21 +567,44 @@
       │                          │  verify password         │
       │  ◀───── JWT tokens ───── │                          │
       │                          │                          │
-      │  3. GET /lands (public)  │                          │
+      │  3. POST /auth/          │                          │
+      │     forgot-password      │                          │
+      │ ─────────────────────▶   │                          │
+      │                          │  Find user, gen token    │
+      │                          │ ─────────────────────▶   │
+      │                          │  Send email (async)      │
+      │  ◀── 200 "link sent" ── │                          │
+      │                          │                          │
+      │  4. GET /auth/reset-     │                          │
+      │     password/validate    │                          │
+      │ ─────────────────────▶   │                          │
+      │                          │  SELECT token (unused)   │
+      │                          │ ─────────────────────▶   │
+      │  ◀── 200 "valid" ────── │                          │
+      │                          │                          │
+      │  5. POST /auth/          │                          │
+      │     reset-password       │                          │
+      │ ─────────────────────▶   │                          │
+      │                          │  UPDATE password         │
+      │                          │  Mark token used         │
+      │                          │ ─────────────────────▶   │
+      │  ◀── 200 "reset ok" ─── │                          │
+      │                          │                          │
+      │  6. GET /lands (public)  │                          │
       │ ─────────────────────▶   │                          │
       │                          │  SELECT lands            │
       │                          │  WHERE status=ACTIVE     │
       │                          │ ─────────────────────▶   │
       │  ◀───── land list ────── │                          │
       │                          │                          │
-      │  4. POST /subscriptions  │                          │
+      │  7. POST /subscriptions  │                          │
       │  (Bearer token)         │                          │
       │ ─────────────────────▶   │                          │
       │                          │  INSERT subscription     │
       │                          │ ─────────────────────▶   │
       │  ◀── subscription ────── │                          │
       │                          │                          │
-      │  5. POST /vendor/register│                          │
+      │  8. POST /vendor/register│                          │
       │  (Bearer token)         │                          │
       │ ─────────────────────▶   │                          │
       │                          │  INSERT vendor_profile   │
@@ -502,11 +612,11 @@
       │                          │ ─────────────────────▶   │
       │  ◀── vendor profile ──── │                          │
       │                          │                          │
-      │  6. POST /auth/login     │  ⚠️ Must re-login to    │
+      │  9. POST /auth/login     │  ⚠️ Must re-login to    │
       │ ─────────────────────▶   │  get VENDOR role token   │
       │  ◀── JWT (role=VENDOR) ─ │                          │
       │                          │                          │
-      │  7. POST /vendor/lands   │                          │
+      │  10. POST /vendor/lands  │                          │
       │  (Bearer vendor token)  │                          │
       │ ─────────────────────▶   │                          │
       │                          │  INSERT land             │
@@ -518,7 +628,7 @@
 
 ---
 
-## 11. Error Flow
+## 12. Error Flow
 
 ```
                     ┌─────────────┐

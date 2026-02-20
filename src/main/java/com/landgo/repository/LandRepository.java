@@ -2,7 +2,7 @@ package com.landgo.repository;
 
 import com.landgo.entity.Land;
 import com.landgo.enums.LandStatus;
-import com.landgo.enums.LandType;
+import com.landgo.enums.ProjectStage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -29,18 +29,17 @@ public interface LandRepository extends JpaRepository<Land, UUID>, JpaSpecificat
     Page<Land> findByVendorId(@Param("vendorId") UUID vendorId, Pageable pageable);
 
     @Query("SELECT l FROM Land l WHERE l.status = 'ACTIVE' AND l.deleted = false AND " +
-           "(LOWER(l.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(l.city) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(l.state) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "(LOWER(l.address) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(l.city) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Land> searchLands(@Param("search") String search, Pageable pageable);
 
     @Query("SELECT l FROM Land l WHERE l.status = 'ACTIVE' AND l.deleted = false AND " +
            "(:city IS NULL OR l.city = :city) AND " +
-           "(:type IS NULL OR l.landType = :type) AND " +
-           "(:minPrice IS NULL OR l.price >= :minPrice) AND " +
-           "(:maxPrice IS NULL OR l.price <= :maxPrice)")
+           "(:stage IS NULL OR l.projectStage = :stage) AND " +
+           "(:minPrice IS NULL OR l.askingPrice >= :minPrice) AND " +
+           "(:maxPrice IS NULL OR l.askingPrice <= :maxPrice)")
     Page<Land> findByFilters(@Param("city") String city,
-                             @Param("type") LandType type,
+                             @Param("stage") ProjectStage stage,
                              @Param("minPrice") BigDecimal minPrice,
                              @Param("maxPrice") BigDecimal maxPrice,
                              Pageable pageable);

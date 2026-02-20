@@ -71,6 +71,7 @@ A Spring Boot backend API for the LandGo land listing platform with vendor manag
 ## 🚀 Features
 
 - **User Management**: Register/login with Email, Google, or Apple
+- **Password Reset**: Forgot password flow with email-based token verification (30-min expiry, single-use tokens)
 - **Vendor System**: Users can register as vendors to list lands
 - **Land Listings**: Full CRUD operations for land properties with search, filter, recent & popular listings
 - **Subscription Plans**: FREE, BASIC, PREMIUM, ENTERPRISE tiers with feature gating
@@ -114,7 +115,7 @@ landgo-backend/
 │   │   ├── OpenApiConfig.java   # Swagger/OpenAPI configuration
 │   │   └── SecurityConfig.java  # Spring Security + JWT filter chain
 │   ├── controller/              # REST API controllers
-│   │   ├── AuthController.java          # Authentication (register, login, OAuth2)
+│   │   ├── AuthController.java          # Authentication (register, login, OAuth2, password reset)
 │   │   ├── LandController.java          # Land listings (public + vendor CRUD)
 │   │   ├── SubscriptionController.java  # Subscription management
 │   │   └── VendorController.java        # Vendor registration & profiles
@@ -126,14 +127,15 @@ landgo-backend/
 │   │   ├── User.java            # User with auth, role, relationships
 │   │   ├── Land.java            # Land listing with location, specs, media
 │   │   ├── Subscription.java    # User subscription with plan & feature limits
-│   │   └── VendorProfile.java   # Vendor business profile
+│   │   ├── VendorProfile.java   # Vendor business profile
+│   │   └── PasswordResetToken.java # Password reset token (UUID, 30-min expiry)
 │   ├── enums/                   # AuthProvider, Role, LandType, LandStatus, etc.
 │   ├── exception/               # ApiException, GlobalExceptionHandler, etc.
 │   ├── factory/                 # OAuth2StrategyFactory
 │   ├── mapper/                  # MapStruct mappers (User, Land, Vendor, Subscription)
 │   ├── repository/              # Spring Data JPA repositories with custom queries
 │   ├── security/                # JWT provider, filter, UserPrincipal, @CurrentUser
-│   ├── service/                 # Business logic (Auth, Land, Vendor, Subscription)
+│   ├── service/                 # Business logic (Auth, Land, Vendor, Subscription, Email)
 │   └── strategy/                # OAuth2 authentication strategies (Google, Apple)
 ├── src/main/resources/
 │   ├── application.yml          # Main configuration
@@ -171,6 +173,9 @@ landgo-backend/
 | POST | `/api/v1/auth/register` | Public | Register new user with email/password |
 | POST | `/api/v1/auth/login` | Public | Login with email/password |
 | POST | `/api/v1/auth/oauth2` | Public | OAuth2 login (Google/Apple) |
+| POST | `/api/v1/auth/forgot-password` | Public | Request password reset email |
+| GET | `/api/v1/auth/reset-password/validate?token=` | Public | Validate reset token |
+| POST | `/api/v1/auth/reset-password` | Public | Reset password with token |
 | GET | `/api/v1/auth/me` | Bearer | Get current authenticated user |
 
 ### Vendor Management (`/api/v1/vendor` & `/api/v1/vendors`)
@@ -227,7 +232,53 @@ landgo-backend/
 | GET | `/swagger-ui.html` | Public | Interactive API documentation |
 | GET | `/v3/api-docs` | Public | OpenAPI JSON specification |
 
-> **Total: 24 endpoints** across 4 controllers + actuator + Swagger
+> **Total: 27 endpoints** across 4 controllers + actuator + Swagger
+
+### 📋 API Quick Reference (Copy-Paste Ready)
+
+```
+AUTH
+  POST   /api/v1/auth/register                                    Public
+  POST   /api/v1/auth/login                                       Public
+  POST   /api/v1/auth/oauth2                                      Public
+  POST   /api/v1/auth/forgot-password                             Public
+  GET    /api/v1/auth/reset-password/validate?token=              Public
+  POST   /api/v1/auth/reset-password                              Public
+  GET    /api/v1/auth/me                                          Bearer
+
+VENDOR
+  POST   /api/v1/vendor/register                                  Bearer
+  GET    /api/v1/vendor/profile                                   VENDOR
+  PUT    /api/v1/vendor/profile                                   VENDOR
+  GET    /api/v1/vendors                                          Public
+  GET    /api/v1/vendors/{id}                                     Bearer + Paid Sub
+  GET    /api/v1/vendors/search?query=                            Public
+
+LANDS (Public)
+  GET    /api/v1/lands                                            Public
+  GET    /api/v1/lands/{id}                                       Public
+  GET    /api/v1/lands/search?query=                              Public
+  GET    /api/v1/lands/filter?city=&type=&minPrice=&maxPrice=     Public
+  GET    /api/v1/lands/recent?limit=                              Public
+  GET    /api/v1/lands/popular?limit=                             Public
+
+LANDS (Vendor)
+  POST   /api/v1/vendor/lands                                     VENDOR
+  GET    /api/v1/vendor/lands                                     VENDOR
+  PUT    /api/v1/vendor/lands/{id}                                VENDOR
+  DELETE /api/v1/vendor/lands/{id}                                VENDOR
+
+SUBSCRIPTIONS
+  POST   /api/v1/subscriptions                                    Bearer
+  GET    /api/v1/subscriptions/current                            Bearer
+  POST   /api/v1/subscriptions/cancel?reason=                     Bearer
+
+UTILITY
+  GET    /actuator/health                                         Public
+  GET    /actuator/info                                           Public
+  GET    /swagger-ui.html                                         Public
+  GET    /v3/api-docs                                             Public
+```
 
 ## 🔧 Local Development
 
@@ -257,6 +308,13 @@ docker-compose up -d postgres pgadmin
 
 # Windows (Command Prompt / PowerShell)
 mvnw.cmd clean compile spring-boot:run
+
+# 4. To Stop the app running in local 
+lsof -ti:8080 | xargs kill -9 2>/dev/null && echo "App stopped" || echo "No process found on port 8080"
+
+#stop local database 
+docker-compose down
+
 ```
 
 The app starts on `http://localhost:8080`. Tables are auto-created by Hibernate (`ddl-auto: create-drop`).
@@ -295,6 +353,12 @@ docker-compose up -d postgres pgadmin
 | `APPLE_CLIENT_ID` | Apple OAuth2 client ID | *(empty)* |
 | `APPLE_CLIENT_SECRET` | Apple OAuth2 client secret | *(empty)* |
 | `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000,http://localhost:8080` |
+| `MAIL_HOST` | SMTP server host | `smtp.gmail.com` |
+| `MAIL_PORT` | SMTP server port | `587` |
+| `MAIL_USERNAME` | SMTP username/email | *(empty)* |
+| `MAIL_PASSWORD` | SMTP password / app password | *(empty)* |
+| `APP_MAIL_FROM` | "From" address for reset emails | `noreply@landgo.com` |
+| `APP_MAIL_RESET_URL` | Password reset frontend URL | `http://localhost:3000/reset-password` |
 
 ### API Documentation & Testing
 
@@ -371,6 +435,7 @@ kubectl apply -f aws/eks/deployment.yaml
 - **Land Status**: New listings are created with `PENDING_APPROVAL` status. Only `ACTIVE` status lands appear in public browse/search/filter endpoints.
 - **Vendor Details**: Viewing vendor details (`GET /vendors/{id}`) requires an active paid subscription (not FREE).
 - **Soft Delete**: Land deletion sets `deleted = true` rather than removing the record.
+- **Password Reset**: Available only for EMAIL auth provider users (not Google/Apple). Tokens expire after 30 minutes and are single-use. The forgot-password endpoint always returns 200 to prevent email enumeration.
 - **CORS**: Configured to allow `http://localhost:3000` and `http://localhost:8080` by default.
 
 ## 📄 License

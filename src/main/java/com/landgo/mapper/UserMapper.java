@@ -10,6 +10,8 @@ import org.mapstruct.Mapping;
 public interface UserMapper {
 
     @Mapping(target = "isVendor", expression = "java(user.isVendor())")
+    @Mapping(target = "isAgent", expression = "java(user.isAgent())")
+    @Mapping(target = "fullName", expression = "java(user.getFullName())")
     UserResponse toResponse(User user);
 
     @Mapping(target = "id", ignore = true)
@@ -22,5 +24,6 @@ public interface UserMapper {
     @Mapping(target = "subscription", ignore = true)
     @Mapping(target = "savedLands", ignore = true)
     @Mapping(target = "role", ignore = true)
+    @Mapping(target = "agentAuthorizationAccepted", ignore = true)
     User toEntity(RegisterRequest request);
 }

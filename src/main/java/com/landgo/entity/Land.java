@@ -1,7 +1,7 @@
 package com.landgo.entity;
 
 import com.landgo.enums.LandStatus;
-import com.landgo.enums.LandType;
+import com.landgo.enums.ProjectStage;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -10,6 +10,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "lands")
@@ -24,36 +25,46 @@ public class Land extends BaseEntity {
     @JoinColumn(name = "vendor_id", nullable = false)
     private VendorProfile vendor;
 
-    @Column(name = "title", nullable = false, length = 200)
-    private String title;
-
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
-
+    // ===== Project Stage =====
     @Enumerated(EnumType.STRING)
-    @Column(name = "land_type", nullable = false, length = 50)
-    private LandType landType;
+    @Column(name = "project_stage", nullable = false, length = 50)
+    private ProjectStage projectStage;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private LandStatus status = LandStatus.PENDING_APPROVAL;
 
-    // Location
+    // ===== Project Details (Location) =====
     @Column(name = "address", nullable = false)
     private String address;
 
     @Column(name = "city", nullable = false, length = 100)
     private String city;
 
-    @Column(name = "state", nullable = false, length = 100)
-    private String state;
+    @Column(name = "postal_code", nullable = false, length = 20)
+    private String postalCode;
 
-    @Column(name = "zip_code", nullable = false, length = 20)
-    private String zipCode;
+    @Column(name = "lot_size", nullable = false, precision = 15, scale = 2)
+    private BigDecimal lotSize;
 
-    @Column(name = "country", nullable = false, length = 100)
-    private String country;
+    @Column(name = "lot_unit", nullable = false, length = 20)
+    private String lotUnit;
+
+    @Column(name = "frontage", length = 50)
+    private String frontage;
+
+    @Column(name = "depth", length = 50)
+    private String depth;
+
+    @Column(name = "current_zoning_codes")
+    private String currentZoningCodes;
+
+    @Column(name = "pin_number", length = 50)
+    private String pinNumber;
+
+    @Column(name = "official_plan_designation")
+    private String officialPlanDesignation;
 
     @Column(name = "latitude", precision = 10, scale = 8)
     private BigDecimal latitude;
@@ -61,53 +72,37 @@ public class Land extends BaseEntity {
     @Column(name = "longitude", precision = 11, scale = 8)
     private BigDecimal longitude;
 
-    // Specifications
-    @Column(name = "price", nullable = false, precision = 15, scale = 2)
-    private BigDecimal price;
+    // ===== Project Specification (stored as JSONB) =====
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "project_specification", columnDefinition = "jsonb")
+    private Map<String, Object> projectSpecification;
 
-    @Column(name = "area_sq_ft", nullable = false, precision = 15, scale = 2)
-    private BigDecimal areaSqFt;
+    // ===== Pricing =====
+    @Column(name = "asking_price", nullable = false, precision = 15, scale = 2)
+    private BigDecimal askingPrice;
 
-    @Column(name = "frontage", precision = 10, scale = 2)
-    private BigDecimal frontage;
+    @Column(name = "currency", nullable = false, length = 10)
+    @Builder.Default
+    private String currency = "CAD";
 
-    @Column(name = "depth", precision = 10, scale = 2)
-    private BigDecimal depth;
+    @Column(name = "pricing_description", columnDefinition = "TEXT")
+    private String pricingDescription;
 
-    // Features
-    @Column(name = "has_water_access")
-    private boolean hasWaterAccess;
+    // ===== Photos (stored as JSONB array) =====
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "photos", columnDefinition = "jsonb")
+    private List<Map<String, String>> photos;
 
-    @Column(name = "has_electricity")
-    private boolean hasElectricity;
+    // ===== Documents (stored as JSONB array) =====
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "documents", columnDefinition = "jsonb")
+    private List<Map<String, String>> documents;
 
-    @Column(name = "has_road_access")
-    private boolean hasRoadAccess;
+    // ===== Ownership =====
+    @Column(name = "ownership_verification", length = 500)
+    private String ownershipVerification;
 
-    @Column(name = "has_sewage")
-    private boolean hasSewage;
-
-    @Column(name = "zoning_info")
-    private String zoningInfo;
-
-    @Column(name = "topography")
-    private String topography;
-
-    @Column(name = "soil_type")
-    private String soilType;
-
-    // Media
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "image_urls", columnDefinition = "TEXT[]")
-    private List<String> imageUrls;
-
-    @Column(name = "video_url", length = 500)
-    private String videoUrl;
-
-    @Column(name = "virtual_tour_url", length = 500)
-    private String virtualTourUrl;
-
-    // Metrics
+    // ===== Metrics =====
     @Column(name = "view_count")
     @Builder.Default
     private Integer viewCount = 0;

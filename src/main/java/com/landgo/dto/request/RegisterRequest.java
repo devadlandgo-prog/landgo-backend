@@ -1,8 +1,10 @@
 package com.landgo.dto.request;
 
 import com.landgo.enums.AuthProvider;
+import com.landgo.enums.UserType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,13 +17,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank(message = "First name is required")
-    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
-    private String firstName;
+    @NotNull(message = "User type is required (SELLER or AGENT)")
+    private UserType userType;
 
-    @NotBlank(message = "Last name is required")
-    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
-    private String lastName;
+    @NotBlank(message = "Full name is required")
+    @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+    private String fullName;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
@@ -32,10 +33,28 @@ public class RegisterRequest {
 
     private String phone;
 
+    // --- Agent-specific fields ---
+
+    @Size(max = 200, message = "Agency name must be at most 200 characters")
+    private String agencyName;
+
+    @Size(max = 50, message = "RECO license number must be at most 50 characters")
+    private String recoLicenseNumber;
+
+    private Boolean agentAuthorizationAccepted;
+
+    // --- OAuth2 / Internal fields ---
+
     @Builder.Default
     private AuthProvider authProvider = AuthProvider.EMAIL;
 
     private String providerId;
 
     private String profileImageUrl;
+
+    // --- Kept for backward compatibility / internal mapper use ---
+
+    private String firstName;
+
+    private String lastName;
 }

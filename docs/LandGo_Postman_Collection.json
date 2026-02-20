@@ -25,6 +25,12 @@
 			"key": "VENDOR_ID",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "RESET_TOKEN",
+			"value": "",
+			"type": "string",
+			"description": "Password reset token (UUID) - must be obtained from the database or email"
 		}
 	],
 	"item": [
@@ -232,7 +238,185 @@
 			]
 		},
 		{
-			"name": "📋 Subscriptions",
+			"name": "� Password Reset",
+			"item": [
+				{
+					"name": "1. Forgot Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Response has reset link message', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('reset');",
+									"});",
+									"",
+									"console.log('📧 Check your email or query the database for the reset token:');",
+									"console.log('   docker exec -it landgo-postgres psql -U postgres -d landgo -c \"SELECT token FROM password_reset_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;\"');",
+									"console.log('Then set the RESET_TOKEN collection variable with the token value.');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/forgot-password",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "forgot-password"]
+						},
+						"description": "Request a password reset email. This endpoint always returns 200 OK regardless of whether the email exists (to prevent email enumeration).\n\nOnly works for users registered with EMAIL auth provider (not Google/Apple OAuth2 users).\n\n⚠️ After calling this, get the token from:\n1. The email inbox, OR\n2. The database: `docker exec -it landgo-postgres psql -U postgres -d landgo -c \"SELECT token FROM password_reset_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;\"`\n\nThen set the `RESET_TOKEN` collection variable."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Validate Reset Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Token is valid', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('valid');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/reset-password/validate?token={{RESET_TOKEN}}",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "reset-password", "validate"],
+							"query": [
+								{
+									"key": "token",
+									"value": "{{RESET_TOKEN}}",
+									"description": "The UUID reset token from the email or database"
+								}
+							]
+						},
+						"description": "Validate that a password reset token is still valid (not expired, not used). Call this before showing the reset password form on the frontend.\n\nReturns 400 if the token is invalid, expired, or already used."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Reset Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Password reset successful', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('reset');",
+									"});",
+									"",
+									"console.log('✅ Password has been reset. You can now login with the new password.');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{RESET_TOKEN}}\",\n  \"newPassword\": \"NewPass@123\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/reset-password",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "reset-password"]
+						},
+						"description": "Reset the password using a valid token. The token must be valid, not expired, and not already used.\n\nPassword requirements:\n- Minimum 8 characters\n\nAfter successful reset:\n- Token is marked as used\n- All other active tokens for this user are invalidated\n- User can login with the new password"
+					},
+					"response": []
+				},
+				{
+					"name": "4. Login with New Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data && response.data.accessToken) {",
+									"    pm.collectionVariables.set('TOKEN', response.data.accessToken);",
+									"    console.log('✅ Token updated after password reset');",
+									"}",
+									"",
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Login successful with new password', function () {",
+									"    pm.expect(response.data.accessToken).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"NewPass@123\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/login",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Login with the new password after a successful password reset. Verifies that the password was changed correctly."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "�📋 Subscriptions",
 			"item": [
 				{
 					"name": "1. Subscribe to Plan",
@@ -1340,6 +1524,163 @@
 							"path": ["api", "v1", "auth", "me"]
 						},
 						"description": "Try to access a protected endpoint with an invalid/expired JWT token. Should return 401."
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Invalid Reset Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Error message mentions token', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/reset-password/validate?token=00000000-0000-0000-0000-000000000000",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "reset-password", "validate"],
+							"query": [
+								{
+									"key": "token",
+									"value": "00000000-0000-0000-0000-000000000000",
+									"description": "A non-existent/invalid reset token"
+								}
+							]
+						},
+						"description": "Try to validate a non-existent or invalid password reset token. Should return 400 with 'Invalid or expired password reset token'."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password with Invalid Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Error message mentions token', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000\",\n  \"newPassword\": \"NewPass@123\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/reset-password",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "reset-password"]
+						},
+						"description": "Try to reset password with an invalid/non-existent token. Should return 400."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password with Short Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{RESET_TOKEN}}\",\n  \"newPassword\": \"short\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/reset-password",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "reset-password"]
+						},
+						"description": "Try to reset password with a password that's too short (less than 8 characters). Should return 400 with validation error."
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password with Non-Existent Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200 (security - no email enumeration)', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Same success response as valid email', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('reset');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"nonexistent@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/forgot-password",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "forgot-password"]
+						},
+						"description": "Try forgot password with a non-existent email. Should still return 200 OK (security best practice — prevents email enumeration attacks). No email will actually be sent."
 					},
 					"response": []
 				}

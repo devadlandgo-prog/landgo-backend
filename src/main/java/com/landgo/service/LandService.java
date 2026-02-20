@@ -6,7 +6,7 @@ import com.landgo.dto.response.PageResponse;
 import com.landgo.entity.Land;
 import com.landgo.entity.VendorProfile;
 import com.landgo.enums.LandStatus;
-import com.landgo.enums.LandType;
+import com.landgo.enums.ProjectStage;
 import com.landgo.exception.ForbiddenException;
 import com.landgo.exception.ResourceNotFoundException;
 import com.landgo.mapper.LandMapper;
@@ -47,7 +47,8 @@ public class LandService {
         vendor.incrementLandsListed();
         vendorRepository.save(vendor);
 
-        log.info("Land listing created: {} by vendor: {}", land.getTitle(), vendor.getCompanyName());
+        log.info("Land listing created: {} in {} by vendor: {}",
+                land.getProjectStage(), land.getCity(), vendor.getCompanyName());
         return landMapper.toResponse(land);
     }
 
@@ -72,10 +73,10 @@ public class LandService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<LandResponse> filterLands(String city, LandType type,
+    public PageResponse<LandResponse> filterLands(String city, ProjectStage stage,
                                                    BigDecimal minPrice, BigDecimal maxPrice,
                                                    Pageable pageable) {
-        Page<Land> landPage = landRepository.findByFilters(city, type, minPrice, maxPrice, pageable);
+        Page<Land> landPage = landRepository.findByFilters(city, stage, minPrice, maxPrice, pageable);
         return toPageResponse(landPage);
     }
 
@@ -110,7 +111,7 @@ public class LandService {
 
         landMapper.updateEntity(request, land);
         land = landRepository.save(land);
-        log.info("Land listing updated: {}", land.getTitle());
+        log.info("Land listing updated: {} in {}", land.getProjectStage(), land.getCity());
         return landMapper.toResponse(land);
     }
 
@@ -125,7 +126,7 @@ public class LandService {
 
         land.setDeleted(true);
         landRepository.save(land);
-        log.info("Land listing deleted: {}", land.getTitle());
+        log.info("Land listing deleted: {} in {}", land.getProjectStage(), land.getCity());
     }
 
     @Transactional
@@ -134,7 +135,7 @@ public class LandService {
                 .orElseThrow(() -> new ResourceNotFoundException("Land", "id", landId));
         land.setStatus(status);
         land = landRepository.save(land);
-        log.info("Land status updated: {} -> {}", land.getTitle(), status);
+        log.info("Land status updated: {} -> {}", land.getCity(), status);
         return landMapper.toResponse(land);
     }
 

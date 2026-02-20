@@ -4,7 +4,7 @@ import com.landgo.dto.request.LandCreateRequest;
 import com.landgo.dto.response.ApiResponse;
 import com.landgo.dto.response.LandResponse;
 import com.landgo.dto.response.PageResponse;
-import com.landgo.enums.LandType;
+import com.landgo.enums.ProjectStage;
 import com.landgo.security.CurrentUser;
 import com.landgo.security.UserPrincipal;
 import com.landgo.service.LandService;
@@ -61,11 +61,11 @@ public class LandController {
     @Operation(summary = "Filter lands", description = "Filter land listings by criteria")
     public ResponseEntity<ApiResponse<PageResponse<LandResponse>>> filterLands(
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) LandType type,
+            @RequestParam(required = false) ProjectStage stage,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @PageableDefault(size = 20) Pageable pageable) {
-        PageResponse<LandResponse> response = landService.filterLands(city, type, minPrice, maxPrice, pageable);
+        PageResponse<LandResponse> response = landService.filterLands(city, stage, minPrice, maxPrice, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -88,8 +88,8 @@ public class LandController {
     // ===== Vendor Endpoints =====
 
     @PostMapping("/vendor/lands")
-    @PreAuthorize("hasRole('VENDOR')")
-    @Operation(summary = "Create land listing", description = "Create a new land listing (vendor only)")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
+    @Operation(summary = "Create land listing", description = "Create a new land listing (vendor/agent only)")
     public ResponseEntity<ApiResponse<LandResponse>> createLand(
             @CurrentUser UserPrincipal userPrincipal,
             @Valid @RequestBody LandCreateRequest request) {
@@ -99,8 +99,8 @@ public class LandController {
     }
 
     @GetMapping("/vendor/lands")
-    @PreAuthorize("hasRole('VENDOR')")
-    @Operation(summary = "Get my lands", description = "Get all lands listed by current vendor")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
+    @Operation(summary = "Get my lands", description = "Get all lands listed by current vendor/agent")
     public ResponseEntity<ApiResponse<PageResponse<LandResponse>>> getVendorLands(
             @CurrentUser UserPrincipal userPrincipal,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -109,8 +109,8 @@ public class LandController {
     }
 
     @PutMapping("/vendor/lands/{id}")
-    @PreAuthorize("hasRole('VENDOR')")
-    @Operation(summary = "Update land listing", description = "Update a land listing (vendor only)")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
+    @Operation(summary = "Update land listing", description = "Update a land listing (vendor/agent only)")
     public ResponseEntity<ApiResponse<LandResponse>> updateLand(
             @CurrentUser UserPrincipal userPrincipal,
             @PathVariable UUID id,
@@ -120,8 +120,8 @@ public class LandController {
     }
 
     @DeleteMapping("/vendor/lands/{id}")
-    @PreAuthorize("hasRole('VENDOR')")
-    @Operation(summary = "Delete land listing", description = "Delete a land listing (vendor only)")
+    @PreAuthorize("hasAnyRole('VENDOR', 'AGENT')")
+    @Operation(summary = "Delete land listing", description = "Delete a land listing (vendor/agent only)")
     public ResponseEntity<ApiResponse<Void>> deleteLand(
             @CurrentUser UserPrincipal userPrincipal,
             @PathVariable UUID id) {

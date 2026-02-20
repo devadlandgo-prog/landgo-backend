@@ -1,9 +1,9 @@
 # LandGo Backend - API Documentation
 
-> **Version:** 1.0.0  
+> **Version:** 1.1.0  
 > **Base URL:** `http://localhost:8080`  
 > **Swagger UI:** `http://localhost:8080/swagger-ui.html`  
-> **Last Updated:** 13 February 2026
+> **Last Updated:** 14 February 2026
 
 ---
 
@@ -362,6 +362,121 @@ GET /api/v1/auth/me
   "timestamp": "2026-02-13T12:00:00"
 }
 ```
+
+---
+
+#### 5.1.5 Forgot Password
+
+```
+POST /api/v1/auth/forgot-password
+```
+
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "email": "elena@example.com"
+}
+```
+
+**Validation Rules:**
+| Field | Rule |
+|-------|------|
+| email | Required, valid email format |
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Password reset link has been sent to your email",
+  "timestamp": "2026-02-14T12:00:00"
+}
+```
+
+**Flow:**
+1. Validates the email exists and belongs to an `EMAIL` auth provider (not Google/Apple)
+2. Invalidates any existing unused reset tokens for the user
+3. Generates a UUID token with 30-minute expiry
+4. Stores the token in the `password_reset_tokens` table
+5. Sends a branded HTML email with the reset link (async)
+
+> **Security Note:** This endpoint always returns a 200 OK regardless of whether the email exists. This prevents email enumeration attacks.
+
+---
+
+#### 5.1.6 Validate Reset Token
+
+```
+GET /api/v1/auth/reset-password/validate?token={token}
+```
+
+**Auth Required:** No
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| token | String (required) | The UUID reset token from the email link |
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Token is valid",
+  "timestamp": "2026-02-14T12:00:00"
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Token is invalid, expired, or already used |
+
+---
+
+#### 5.1.7 Reset Password
+
+```
+POST /api/v1/auth/reset-password
+```
+
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "token": "baa879d6-533b-4cae-b87e-03a72839e6b3",
+  "newPassword": "NewPass@123"
+}
+```
+
+**Validation Rules:**
+| Field | Rule |
+|-------|------|
+| token | Required |
+| newPassword | Required, minimum 8 characters |
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Password has been reset successfully",
+  "timestamp": "2026-02-14T12:00:00"
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Token is invalid, expired, or already used |
+| 400 | Password validation failed (too short) |
+
+**Flow:**
+1. Validates the token (exists, not expired, not used)
+2. Updates the user's password (BCrypt encoded)
+3. Marks the token as `used = true`
+4. Invalidates all other active reset tokens for the user
+5. User can now login with the new password
 
 ---
 
@@ -1011,6 +1126,70 @@ Content-Type: application/json
 
 ---
 
+#### Step 3.1: Forgot Password
+
+```
+POST {{BASE_URL}}/api/v1/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
+}
+```
+
+**Expected:** 200 OK with message "Password reset link has been sent to your email"  
+**Action:** Query the database to get the token:
+```bash
+docker exec -it landgo-postgres psql -U postgres -d landgo -c "SELECT token FROM password_reset_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;"
+```
+
+---
+
+#### Step 3.2: Validate Reset Token
+
+```
+GET {{BASE_URL}}/api/v1/auth/reset-password/validate?token={{RESET_TOKEN}}
+```
+
+**Expected:** 200 OK with message "Token is valid"
+
+---
+
+#### Step 3.3: Reset Password
+
+```
+POST {{BASE_URL}}/api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "{{RESET_TOKEN}}",
+  "newPassword": "NewPass@123"
+}
+```
+
+**Expected:** 200 OK with message "Password has been reset successfully"
+
+---
+
+#### Step 3.4: Login with New Password
+
+```
+POST {{BASE_URL}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "NewPass@123"
+}
+```
+
+**Expected:** 200 OK with `accessToken`  
+**Action:** Save `accessToken` as `{{TOKEN}}`
+
+> ⚠️ **Note:** All subsequent steps should use the new password `NewPass@123` instead of `password123`.
+
+---
+
 #### Step 4: Get Current User
 
 ```
@@ -1323,6 +1502,10 @@ Authorization: Bearer {{TOKEN}}
 | 8 | Get non-existent land | GET /lands/{random-uuid} | 404 |
 | 9 | Create land with missing required fields | POST /vendor/lands | 400 validation errors |
 | 10 | Get vendor details without subscription | GET /vendors/{id} | 403 |
+| 11 | Forgot password for OAuth2 user | POST /auth/forgot-password | 200 (silent — no email sent for Google/Apple users) |
+| 12 | Validate with expired/invalid token | GET /auth/reset-password/validate?token=invalid | 400 "Invalid or expired password reset token" |
+| 13 | Reset password with used token | POST /auth/reset-password | 400 "Invalid or expired password reset token" |
+| 14 | Reset password with short password | POST /auth/reset-password | 400 validation error (min 8 chars) |
 
 ---
 

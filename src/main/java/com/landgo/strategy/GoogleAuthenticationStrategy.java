@@ -2,6 +2,7 @@ package com.landgo.strategy;
 
 import com.landgo.dto.request.RegisterRequest;
 import com.landgo.enums.AuthProvider;
+import com.landgo.enums.UserType;
 import com.landgo.exception.BadRequestException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,7 +71,13 @@ public class GoogleAuthenticationStrategy implements OAuth2AuthenticationStrateg
 
     @Override
     public RegisterRequest toRegisterRequest(OAuth2UserInfo userInfo) {
+        String fullName = (userInfo.getFirstName() + " " + userInfo.getLastName()).trim();
+        if (fullName.isEmpty()) {
+            fullName = userInfo.getEmail().split("@")[0];
+        }
         return RegisterRequest.builder()
+                .userType(UserType.SELLER)
+                .fullName(fullName)
                 .email(userInfo.getEmail())
                 .firstName(userInfo.getFirstName())
                 .lastName(userInfo.getLastName())

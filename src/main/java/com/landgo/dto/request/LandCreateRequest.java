@@ -1,6 +1,7 @@
 package com.landgo.dto.request;
 
-import com.landgo.enums.LandType;
+import com.landgo.enums.ProjectStage;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,63 +17,153 @@ import java.util.List;
 @AllArgsConstructor
 public class LandCreateRequest {
 
-    @NotBlank(message = "Title is required")
-    @Size(min = 5, max = 200, message = "Title must be between 5 and 200 characters")
-    private String title;
+    @NotNull(message = "Project stage is required")
+    private ProjectStage projectStage;
 
-    private String description;
+    @NotNull(message = "Project details are required")
+    @Valid
+    private ProjectDetailsDto projectDetails;
 
-    @NotNull(message = "Land type is required")
-    private LandType landType;
+    @Valid
+    private ProjectSpecificationDto projectSpecification;
 
-    @NotBlank(message = "Address is required")
-    private String address;
+    @NotNull(message = "Pricing is required")
+    @Valid
+    private PricingDto pricing;
 
-    @NotBlank(message = "City is required")
-    private String city;
+    @Size(max = 10, message = "You can upload a maximum of 10 photos")
+    private List<FileDto> photos;
 
-    @NotBlank(message = "State is required")
-    private String state;
+    @Size(max = 25, message = "You can upload a maximum of 25 documents")
+    private List<FileDto> documents;
 
-    @NotBlank(message = "Zip code is required")
-    private String zipCode;
+    private String ownershipVerification;
 
-    @NotBlank(message = "Country is required")
-    private String country;
+    // ===== Nested DTOs =====
 
-    private BigDecimal latitude;
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProjectDetailsDto {
 
-    private BigDecimal longitude;
+        @NotBlank(message = "Address is required")
+        private String address;
 
-    @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
-    private BigDecimal price;
+        @NotBlank(message = "City is required")
+        private String city;
 
-    @NotNull(message = "Area is required")
-    @Positive(message = "Area must be positive")
-    private BigDecimal areaSqFt;
+        @NotBlank(message = "Postal code is required")
+        private String postalCode;
 
-    private BigDecimal frontage;
+        @NotNull(message = "Lot size is required")
+        @Positive(message = "Lot size must be positive")
+        private BigDecimal lotSize;
 
-    private BigDecimal depth;
+        @NotBlank(message = "Lot unit is required")
+        private String lotUnit;
 
-    private boolean hasWaterAccess;
+        private String frontage;
+        private String depth;
+        private String currentZoningCodes;
+        private String pinNumber;
+        private String officialPlanDesignation;
 
-    private boolean hasElectricity;
+        @Valid
+        private CoordinatesDto coordinates;
+    }
 
-    private boolean hasRoadAccess;
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CoordinatesDto {
+        private BigDecimal lat;
+        private BigDecimal lng;
+    }
 
-    private boolean hasSewage;
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProjectSpecificationDto {
+        private String buildingType;
+        private String proposedUse;
 
-    private String zoningInfo;
+        // Site Plan Approval
+        private String sitePlanStatus;
 
-    private String topography;
+        // Draft Plan Approval
+        private String subdivisionType;
+        private String lotBlockType;
+        private String draftPlanStatus;
 
-    private String soilType;
+        @Valid
+        private ServicesDto services;
 
-    private List<String> imageUrls;
+        // Under City Submission
+        @Valid
+        private ProposedDevelopmentTypeDto proposedDevelopmentType;
+        private String submissionStatus;
 
-    private String videoUrl;
+        // Ready-to-Shovel
+        private String projectType;
+        private String sellingType;
+        private String constructionStartTimeline;
+        private String approvalStatus;
+    }
 
-    private String virtualTourUrl;
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ServicesDto {
+        private Boolean gas;
+        private Boolean hydro;
+        private Boolean municipalSewer;
+        private Boolean municipalWater;
+        private Boolean septic;
+        private Boolean well;
+        private Boolean none;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProposedDevelopmentTypeDto {
+        private Boolean rezoning;
+        private Boolean sitePlan;
+        private Boolean subdivision;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PricingDto {
+        @NotNull(message = "Asking price is required")
+        @DecimalMin(value = "0.0", inclusive = false, message = "Asking price must be greater than 0")
+        private BigDecimal askingPrice;
+
+        @NotBlank(message = "Currency is required")
+        private String currency;
+
+        private String description;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FileDto {
+        @NotBlank(message = "File name is required")
+        private String name;
+
+        @NotBlank(message = "File type is required")
+        private String type;
+
+        @NotBlank(message = "File URL is required")
+        private String url;
+    }
 }
