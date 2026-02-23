@@ -1,9 +1,9 @@
 # LandGo Backend - API Documentation
 
-> **Version:** 1.1.0  
+> **Version:** 1.2.0  
 > **Base URL:** `http://localhost:8080`  
 > **Swagger UI:** `http://localhost:8080/swagger-ui.html`  
-> **Last Updated:** 14 February 2026
+> **Last Updated:** 23 February 2026
 
 ---
 
@@ -258,7 +258,108 @@ POST /api/v1/auth/register
 
 ---
 
-#### 5.1.2 Login
+#### 5.1.2 Verify Email
+
+```
+POST /api/v1/auth/verify-email
+```
+
+**Auth Required:** No
+
+**Description:** Verify the user's email address using the 6-digit verification code sent during registration.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com",
+  "code": "274534"
+}
+```
+
+**Validation Rules:**
+| Field | Rule |
+|-------|------|
+| email | Required, valid email format |
+| code | Required, exactly 6 digits |
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "timestamp": "2026-02-23T12:00:00"
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Email is already verified |
+| 400 | No verification code found (request a new one) |
+| 400 | Verification code has expired (15-min expiry) |
+| 400 | Too many failed attempts (max 5 attempts) |
+| 400 | Invalid verification code (shows remaining attempts) |
+| 400 | Validation failed (code not 6 digits) |
+| 404 | No account found with this email address |
+
+**Flow:**
+1. Finds the user by email
+2. Checks if already verified (rejects if so)
+3. Finds the latest unused verification token for the user
+4. Checks expiry (15-minute window) and attempt count (max 5)
+5. Compares the submitted code with the stored code
+6. On match: marks token as used, sets `emailVerified = true` on the user
+7. On mismatch: increments attempt counter, returns remaining attempts
+
+---
+
+#### 5.1.3 Resend Verification Code
+
+```
+POST /api/v1/auth/resend-verification
+```
+
+**Auth Required:** No
+
+**Description:** Resend a new 6-digit verification code. Invalidates any previously issued codes.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com"
+}
+```
+
+**Validation Rules:**
+| Field | Rule |
+|-------|------|
+| email | Required, valid email format |
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Verification code has been resent to your email",
+  "timestamp": "2026-02-23T12:00:00"
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Email is already verified |
+| 404 | No account found with this email address |
+
+**Flow:**
+1. Finds the user by email
+2. Checks if already verified (rejects if so)
+3. Invalidates all existing unused tokens for the user
+4. Generates a new 6-digit code with 15-minute expiry
+5. Sends a branded HTML email with the new code (async)
+
+---
+
+#### 5.1.4 Login
 
 ```
 POST /api/v1/auth/login
@@ -303,7 +404,7 @@ POST /api/v1/auth/login
 
 ---
 
-#### 5.1.3 OAuth2 Login (Google / Apple)
+#### 5.1.5 OAuth2 Login (Google / Apple)
 
 ```
 POST /api/v1/auth/oauth2
@@ -334,7 +435,7 @@ POST /api/v1/auth/oauth2
 
 ---
 
-#### 5.1.4 Get Current User
+#### 5.1.6 Get Current User
 
 ```
 GET /api/v1/auth/me
@@ -365,7 +466,7 @@ GET /api/v1/auth/me
 
 ---
 
-#### 5.1.5 Forgot Password
+#### 5.1.7 Forgot Password
 
 ```
 POST /api/v1/auth/forgot-password
@@ -405,7 +506,7 @@ POST /api/v1/auth/forgot-password
 
 ---
 
-#### 5.1.6 Validate Reset Token
+#### 5.1.8 Validate Reset Token
 
 ```
 GET /api/v1/auth/reset-password/validate?token={token}
@@ -434,7 +535,7 @@ GET /api/v1/auth/reset-password/validate?token={token}
 
 ---
 
-#### 5.1.7 Reset Password
+#### 5.1.9 Reset Password
 
 ```
 POST /api/v1/auth/reset-password
@@ -1506,6 +1607,12 @@ Authorization: Bearer {{TOKEN}}
 | 12 | Validate with expired/invalid token | GET /auth/reset-password/validate?token=invalid | 400 "Invalid or expired password reset token" |
 | 13 | Reset password with used token | POST /auth/reset-password | 400 "Invalid or expired password reset token" |
 | 14 | Reset password with short password | POST /auth/reset-password | 400 validation error (min 8 chars) |
+| 15 | Verify email with wrong code | POST /auth/verify-email | 400 "Invalid verification code. X attempt(s) remaining" |
+| 16 | Verify email with expired code | POST /auth/verify-email | 400 "Verification code has expired" |
+| 17 | Verify already verified email | POST /auth/verify-email | 400 "Email is already verified" |
+| 18 | Resend verification for verified email | POST /auth/resend-verification | 400 "Email is already verified" |
+| 19 | Verify with non-6-digit code | POST /auth/verify-email | 400 validation error |
+| 20 | Verify after 5 failed attempts | POST /auth/verify-email | 400 "Too many failed attempts" |
 
 ---
 

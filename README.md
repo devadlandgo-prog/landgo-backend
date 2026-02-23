@@ -71,6 +71,7 @@ A Spring Boot backend API for the LandGo land listing platform with vendor manag
 ## 🚀 Features
 
 - **User Management**: Register/login with Email, Google, or Apple
+- **Email Verification**: 6-digit verification code sent on registration (15-min expiry, 5 attempts max, resend support)
 - **Password Reset**: Forgot password flow with email-based token verification (30-min expiry, single-use tokens)
 - **Vendor System**: Users can register as vendors to list lands
 - **Land Listings**: Full CRUD operations for land properties with search, filter, recent & popular listings
@@ -128,7 +129,8 @@ landgo-backend/
 │   │   ├── Land.java            # Land listing with location, specs, media
 │   │   ├── Subscription.java    # User subscription with plan & feature limits
 │   │   ├── VendorProfile.java   # Vendor business profile
-│   │   └── PasswordResetToken.java # Password reset token (UUID, 30-min expiry)
+│   │   ├── PasswordResetToken.java # Password reset token (UUID, 30-min expiry)
+│   │   └── EmailVerificationToken.java # Email verification (6-digit code, 15-min expiry)
 │   ├── enums/                   # AuthProvider, Role, LandType, LandStatus, etc.
 │   ├── exception/               # ApiException, GlobalExceptionHandler, etc.
 │   ├── factory/                 # OAuth2StrategyFactory
@@ -170,7 +172,9 @@ landgo-backend/
 ### Authentication (`/api/v1/auth`)
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/v1/auth/register` | Public | Register new user with email/password |
+| POST | `/api/v1/auth/register` | Public | Register new seller/agent — sends 6-digit verification code to email |
+| POST | `/api/v1/auth/verify-email` | Public | Verify email with 6-digit code (15-min expiry, 5 attempts max) |
+| POST | `/api/v1/auth/resend-verification` | Public | Resend verification code (invalidates previous codes) |
 | POST | `/api/v1/auth/login` | Public | Login with email/password |
 | POST | `/api/v1/auth/oauth2` | Public | OAuth2 login (Google/Apple) |
 | POST | `/api/v1/auth/forgot-password` | Public | Request password reset email |
@@ -232,13 +236,15 @@ landgo-backend/
 | GET | `/swagger-ui.html` | Public | Interactive API documentation |
 | GET | `/v3/api-docs` | Public | OpenAPI JSON specification |
 
-> **Total: 27 endpoints** across 4 controllers + actuator + Swagger
+> **Total: 29 endpoints** across 4 controllers + actuator + Swagger
 
 ### 📋 API Quick Reference (Copy-Paste Ready)
 
 ```
 AUTH
   POST   /api/v1/auth/register                                    Public
+  POST   /api/v1/auth/verify-email                                Public
+  POST   /api/v1/auth/resend-verification                         Public
   POST   /api/v1/auth/login                                       Public
   POST   /api/v1/auth/oauth2                                      Public
   POST   /api/v1/auth/forgot-password                             Public
@@ -374,7 +380,7 @@ docker-compose up -d postgres pgadmin
 
 1. Open **Postman** → click **Import**
 2. Select `docs/LandGo_Postman_Collection.json`
-3. Run requests in order: **Register → Login → Subscribe → Vendor Register → Re-Login → Create Land**
+3. Run requests in order: **Register → Verify Email → Login → Subscribe → Vendor Register → Re-Login → Create Land**
 4. Tokens and IDs are auto-saved between requests via test scripts
 
 ## 🚀 Deployment
@@ -436,6 +442,7 @@ kubectl apply -f aws/eks/deployment.yaml
 - **Vendor Details**: Viewing vendor details (`GET /vendors/{id}`) requires an active paid subscription (not FREE).
 - **Soft Delete**: Land deletion sets `deleted = true` rather than removing the record.
 - **Password Reset**: Available only for EMAIL auth provider users (not Google/Apple). Tokens expire after 30 minutes and are single-use. The forgot-password endpoint always returns 200 to prevent email enumeration.
+- **Email Verification**: A 6-digit code is sent to the user's email upon registration. The code expires in 15 minutes with a maximum of 5 verification attempts. Use `POST /auth/resend-verification` to get a new code (invalidates previous ones). OAuth2 users (Google/Apple) are auto-verified.
 - **CORS**: Configured to allow `http://localhost:3000` and `http://localhost:8080` by default.
 
 ## 📄 License

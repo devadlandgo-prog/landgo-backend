@@ -25,6 +25,25 @@ public class EmailService {
     private String resetPasswordBaseUrl;
 
     @Async
+    public void sendVerificationEmail(String toEmail, String userName, String code) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("LandGo - Verify Your Email Address");
+            helper.setText(buildVerificationEmailHtml(userName, code), true);
+
+            mailSender.send(message);
+            log.info("Verification email sent to: {}", toEmail);
+        } catch (MessagingException e) {
+            log.error("Failed to send verification email to: {}", toEmail, e);
+            throw new RuntimeException("Failed to send verification email", e);
+        }
+    }
+
+    @Async
     public void sendPasswordResetEmail(String toEmail, String userName, String token) {
         try {
             String resetLink = resetPasswordBaseUrl + "?token=" + token;
@@ -93,5 +112,53 @@ public class EmailService {
                 </body>
                 </html>
                 """.formatted(userName, resetLink, resetLink);
+    }
+
+    private String buildVerificationEmailHtml(String userName, String code) {
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                        .header { background-color: #1B5E20; padding: 30px; text-align: center; }
+                        .header h1 { color: #ffffff; margin: 0; font-size: 28px; }
+                        .header p { color: #C8E6C9; margin: 5px 0 0; font-size: 14px; }
+                        .body { padding: 40px 30px; }
+                        .body h2 { color: #333333; margin-top: 0; }
+                        .body p { color: #555555; line-height: 1.6; }
+                        .code-box { text-align: center; margin: 30px 0; }
+                        .code { display: inline-block; background-color: #E8F5E9; color: #1B5E20; font-size: 36px; font-weight: bold; letter-spacing: 8px; padding: 16px 32px; border-radius: 12px; border: 2px dashed #4CAF50; }
+                        .footer { background-color: #f9f9f9; padding: 20px 30px; text-align: center; font-size: 12px; color: #999999; }
+                        .warning { background-color: #FFF3E0; border-left: 4px solid #FF9800; padding: 12px 16px; margin: 20px 0; border-radius: 4px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>LandGo</h1>
+                            <p>Find. Build. Grow.</p>
+                        </div>
+                        <div class="body">
+                            <h2>Hi %s,</h2>
+                            <p>Welcome to LandGo! Please verify your email address by entering the following 6-digit code:</p>
+                            <div class="code-box">
+                                <span class="code">%s</span>
+                            </div>
+                            <div class="warning">
+                                <strong>⏰ This code expires in 15 minutes.</strong><br>
+                                If you didn't create a LandGo account, you can safely ignore this email.
+                            </div>
+                            <p>Once verified, you'll have full access to all LandGo features including listing properties and managing your portfolio.</p>
+                        </div>
+                        <div class="footer">
+                            <p>&copy; 2026 LandGo. All rights reserved.</p>
+                            <p>This is an automated email. Please do not reply.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(userName, code);
     }
 }

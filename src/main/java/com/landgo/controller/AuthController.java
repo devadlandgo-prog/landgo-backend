@@ -4,7 +4,9 @@ import com.landgo.dto.request.ForgotPasswordRequest;
 import com.landgo.dto.request.LoginRequest;
 import com.landgo.dto.request.OAuth2Request;
 import com.landgo.dto.request.RegisterRequest;
+import com.landgo.dto.request.ResendVerificationRequest;
 import com.landgo.dto.request.ResetPasswordRequest;
+import com.landgo.dto.request.VerifyEmailRequest;
 import com.landgo.dto.response.ApiResponse;
 import com.landgo.dto.response.AuthResponse;
 import com.landgo.dto.response.UserResponse;
@@ -28,11 +30,25 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new user", description = "Register a new user with email and password")
+    @Operation(summary = "Register a new user", description = "Register a new seller or agent with email and password. A 6-digit verification code will be sent to the provided email.")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Registration successful", response));
+                .body(ApiResponse.success("Registration successful. A verification code has been sent to your email.", response));
+    }
+
+    @PostMapping("/verify-email")
+    @Operation(summary = "Verify email address", description = "Verify the user's email address using the 6-digit code sent during registration. Code expires in 15 minutes.")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", null));
+    }
+
+    @PostMapping("/resend-verification")
+    @Operation(summary = "Resend verification code", description = "Resend a new 6-digit verification code to the user's email. Invalidates any previous codes.")
+    public ResponseEntity<ApiResponse<Void>> resendVerificationCode(@Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerificationCode(request);
+        return ResponseEntity.ok(ApiResponse.success("Verification code has been resent to your email", null));
     }
 
     @PostMapping("/login")

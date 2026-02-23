@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "landgo-api-collection-v1",
 		"name": "LandGo Backend API",
-		"description": "Complete API collection for LandGo land listing platform.\n\n## Setup Instructions\n1. Import this collection into Postman\n2. Create an environment called 'LandGo Local'\n3. Add variable: `BASE_URL` = `http://localhost:8080`\n4. Run requests in order: Register → Login → Subscribe → Vendor Register → Re-Login → Create Land\n\n## Important Notes\n- After vendor registration, you MUST re-login to get a token with VENDOR role\n- New land listings are created with status PENDING_APPROVAL\n- Only ACTIVE lands appear in public browse endpoints",
+		"description": "Complete API collection for LandGo land listing platform.\n\n## Setup Instructions\n1. Import this collection into Postman\n2. Create an environment called 'LandGo Local'\n3. Add variable: `BASE_URL` = `http://localhost:8080`\n4. Run requests in order: Register → Verify Email → Login → Subscribe → Vendor Register → Re-Login → Create Land\n\n## Important Notes\n- After registration, a 6-digit verification code is sent to the email. Verify using POST /auth/verify-email\n- After vendor registration, you MUST re-login to get a token with VENDOR role\n- New land listings are created with status PENDING_APPROVAL\n- Only ACTIVE lands appear in public browse endpoints",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -77,9 +77,16 @@
 									"    pm.expect(response.data.accessToken).to.not.be.empty;",
 									"});",
 									"",
-									"pm.test('User role is USER', function () {",
-									"    pm.expect(response.data.user.role).to.eql('USER');",
-									"});"
+									"pm.test('Verification code sent message', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('verification');",
+									"});",
+									"",
+									"pm.test('emailVerified is false', function () {",
+									"    pm.expect(response.data.user.emailVerified).to.eql(false);",
+									"});",
+									"",
+									"console.log('📧 Verify email using code from DB:');",
+									"console.log('   docker exec -it landgo-postgres psql -U postgres -d landgo -c \"SELECT code FROM email_verification_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;\"');"
 								],
 								"type": "text/javascript"
 							}
@@ -95,14 +102,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"1234567890\"\n}"
+							"raw": "{\n  \"userType\": \"SELLER\",\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"1234567890\"\n}"
 						},
 						"url": {
 							"raw": "{{BASE_URL}}/api/v1/auth/register",
 							"host": ["{{BASE_URL}}"],
 							"path": ["api", "v1", "auth", "register"]
 						},
-						"description": "Register a new user with email and password. The access token is automatically saved for subsequent requests."
+						"description": "Register a new seller or agent. A 6-digit email verification code is automatically sent.\n\nFor AGENT registration, also include: agencyName, recoLicenseNumber, agentAuthorizationAccepted.\n\nThe access token is automatically saved for subsequent requests.\n\n⚠️ After registration, verify your email using the code from the email or database."
 					},
 					"response": []
 				},
@@ -238,7 +245,179 @@
 			]
 		},
 		{
-			"name": "� Password Reset",
+			"name": "📧 Email Verification",
+			"item": [
+				{
+					"name": "1. Verify Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Email verified successfully', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('verified');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/verify-email",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "verify-email"]
+						},
+						"description": "Verify the user's email address using the 6-digit code sent during registration.\n\n⚠️ Replace the code value with the real 6-digit code from:\n1. The email inbox, OR\n2. The database: `docker exec -it landgo-postgres psql -U postgres -d landgo -c \"SELECT code FROM email_verification_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;\"`\n\nRules:\n- Code expires in 15 minutes\n- Maximum 5 verification attempts per code\n- Wrong codes decrement remaining attempts\n- Already verified emails are rejected"
+					},
+					"response": []
+				},
+				{
+					"name": "2. Resend Verification Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Verification code resent', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('resent');",
+									"});",
+									"",
+									"console.log('📧 New code sent! Get it from:');",
+									"console.log('   docker exec -it landgo-postgres psql -U postgres -d landgo -c \"SELECT code FROM email_verification_tokens WHERE used = false ORDER BY created_at DESC LIMIT 1;\"');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/resend-verification",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "resend-verification"]
+						},
+						"description": "Resend a new 6-digit verification code to the user's email. Invalidates any previously issued codes.\n\nFails if the email is already verified."
+					},
+					"response": []
+				},
+				{
+					"name": "3. ❌ Verify with Wrong Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Invalid code rejected', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('invalid');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"code\": \"000000\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/verify-email",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "verify-email"]
+						},
+						"description": "Negative test: try verifying with an incorrect code. Should return 400 with remaining attempts count."
+					},
+					"response": []
+				},
+				{
+					"name": "4. ❌ Resend for Already Verified",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"pm.test('Already verified rejected', function () {",
+									"    pm.expect(response.message.toLowerCase()).to.include('already verified');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/auth/resend-verification",
+							"host": ["{{BASE_URL}}"],
+							"path": ["api", "v1", "auth", "resend-verification"]
+						},
+						"description": "Negative test: try resending verification for an already-verified email. Should return 400."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔑 Password Reset",
 			"item": [
 				{
 					"name": "1. Forgot Password",

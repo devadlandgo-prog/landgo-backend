@@ -4,9 +4,12 @@ import com.landgo.dto.request.ForgotPasswordRequest;
 import com.landgo.dto.request.LoginRequest;
 import com.landgo.dto.request.OAuth2Request;
 import com.landgo.dto.request.RegisterRequest;
+import com.landgo.dto.request.ResendVerificationRequest;
 import com.landgo.dto.request.ResetPasswordRequest;
+import com.landgo.dto.request.VerifyEmailRequest;
 import com.landgo.dto.response.AuthResponse;
 import com.landgo.dto.response.UserResponse;
+import com.landgo.entity.EmailVerificationToken;
 import com.landgo.entity.PasswordResetToken;
 import com.landgo.entity.User;
 import com.landgo.enums.AuthProvider;
@@ -16,6 +19,7 @@ import com.landgo.exception.BadRequestException;
 import com.landgo.exception.ResourceNotFoundException;
 import com.landgo.factory.OAuth2StrategyFactory;
 import com.landgo.mapper.UserMapper;
+import com.landgo.repository.EmailVerificationTokenRepository;
 import com.landgo.repository.PasswordResetTokenRepository;
 import com.landgo.repository.UserRepository;
 import com.landgo.security.JwtTokenProvider;
@@ -32,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.security.SecureRandom;
 import java.util.UUID;
 
 @Slf4j
@@ -46,7 +51,13 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final OAuth2StrategyFactory oAuth2StrategyFactory;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final int VERIFICATION_CODE_LENGTH = 6;
+    private static final int VERIFICATION_CODE_EXPIRY_MINUTES = 15;
+    private static final int MAX_VERIFICATION_ATTEMPTS = 5;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -90,6 +101,9 @@ public class AuthService {
 
         user = userRepository.save(user);
         log.info("{} registered: {}", request.getUserType(), user.getEmail());
+
+        // Generate and send email verification code
+        generateAndSendVerificationCode(user);
 
         return generateAuthResponse(user);
     }
@@ -152,6 +166,88 @@ public class AuthService {
         User user = userRepository.findById(userPrincipal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return userMapper.toResponse(user);
+    }
+
+    // ==========================================
+    // EMAIL VERIFICATION
+    // ==========================================
+
+    @Transactional
+    public void verifyEmail(VerifyEmailRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("No account found with this email address"));
+
+        if (user.isEmailVerified()) {
+            throw new BadRequestException("Email is already verified");
+        }
+
+        EmailVerificationToken token = emailVerificationTokenRepository
+                .findTopByUserAndUsedFalseOrderByCreatedAtDesc(user)
+                .orElseThrow(() -> new BadRequestException("No verification code found. Please request a new one."));
+
+        if (token.isExpired()) {
+            throw new BadRequestException("Verification code has expired. Please request a new one.");
+        }
+
+        if (token.getAttempts() >= MAX_VERIFICATION_ATTEMPTS) {
+            throw new BadRequestException("Too many failed attempts. Please request a new verification code.");
+        }
+
+        if (!token.getCode().equals(request.getCode())) {
+            token.incrementAttempts();
+            emailVerificationTokenRepository.save(token);
+            int remaining = MAX_VERIFICATION_ATTEMPTS - token.getAttempts();
+            throw new BadRequestException("Invalid verification code. " + remaining + " attempt(s) remaining.");
+        }
+
+        // Code is correct — mark token as used and verify the user's email
+        token.setUsed(true);
+        emailVerificationTokenRepository.save(token);
+
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Invalidate any other active tokens
+        emailVerificationTokenRepository.invalidateAllTokensForUser(user);
+
+        log.info("Email verified successfully for user: {}", user.getEmail());
+    }
+
+    @Transactional
+    public void resendVerificationCode(ResendVerificationRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("No account found with this email address"));
+
+        if (user.isEmailVerified()) {
+            throw new BadRequestException("Email is already verified");
+        }
+
+        generateAndSendVerificationCode(user);
+        log.info("Verification code resent to: {}", user.getEmail());
+    }
+
+    private void generateAndSendVerificationCode(User user) {
+        // Invalidate any existing verification tokens
+        emailVerificationTokenRepository.invalidateAllTokensForUser(user);
+
+        // Generate a 6-digit code
+        String code = generateVerificationCode();
+
+        EmailVerificationToken token = EmailVerificationToken.builder()
+                .code(code)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(VERIFICATION_CODE_EXPIRY_MINUTES))
+                .build();
+        emailVerificationTokenRepository.save(token);
+
+        // Send the verification email asynchronously
+        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), code);
+        log.info("Verification code generated and sent to: {}", user.getEmail());
+    }
+
+    private String generateVerificationCode() {
+        int code = SECURE_RANDOM.nextInt(900000) + 100000; // 100000–999999
+        return String.valueOf(code);
     }
 
     @Transactional

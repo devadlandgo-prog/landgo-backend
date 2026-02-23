@@ -1,7 +1,7 @@
 # LandGo Backend - API Flow Mind Map
 
-> **Version:** 1.1.0  
-> **Last Updated:** 14 February 2026
+> **Version:** 1.2.0  
+> **Last Updated:** 23 February 2026
 
 ---
 
@@ -25,8 +25,9 @@
      ┌──────────────────────┐  ┌────────────────────┐  ┌────────────────────────┐
      │ • Auth (register,    │  │ • Auth (me)        │  │ • Vendor land CRUD     │
      │   login, oauth2)     │  │ • Subscriptions    │  │ • Vendor profile mgmt  │
-     │ • Forgot/Reset       │  │ • Vendor details   │  │ • Admin (future)       │
-     │   password            │  │ • Vendor register  │  │                        │
+     │ • Email verification │  │ • Vendor details   │  │ • Admin (future)       │
+     │ • Forgot/Reset       │  │ • Vendor register  │  │                        │
+     │   password            │  │                    │  │                        │
      │ • Browse lands       │  │                    │  │                        │
      │ • Search & Filter    │  │                    │  │                        │
      │ • Browse vendors     │  │                    │  │                        │
@@ -43,10 +44,10 @@
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                           USER JOURNEY                                       │
 │                                                                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│  │ Register │───▶│  Login   │───▶│ Get JWT  │───▶│ Browse   │               │
-│  │ Account  │    │          │    │  Token   │    │  Lands   │               │
-│  └──────────┘    └──────────┘    └──────────┘    └─────┬────┘               │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐│
+│  │ Register │───▶│  Verify  │───▶│  Login   │───▶│ Get JWT  │───▶│ Browse   ││
+│  │ Account  │    │  Email   │    │          │    │  Token   │    │  Lands   ││
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘    └─────┬────┘│
 │                                                        │                     │
 │                                   ┌────────────────────┤                     │
 │                                   │                    │                     │
@@ -74,10 +75,10 @@
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                          VENDOR JOURNEY                                      │
 │                                                                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐          │
-│  │ Register │───▶│  Login   │───▶│ Register as  │───▶│ RE-LOGIN │          │
-│  │ as User  │    │          │    │   VENDOR     │    │ (new JWT)│          │
-│  └──────────┘    └──────────┘    └──────────────┘    └─────┬────┘          │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐          │
+│  │ Register │───▶│  Verify  │───▶│  Login   │───▶│ Register as  │───▶│ RE-LOGIN │          │
+│  │ as User  │    │  Email   │    │          │    │   VENDOR     │    │ (new JWT)│          │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────────┘    └─────┬────┘          │
 │                                                            │                │
 │                              ┌─────────────────────────────┤                │
 │                              │              │              │                │
@@ -143,7 +144,73 @@
 
 ---
 
-## 4. Password Reset Flow
+## 4. Email Verification Flow
+
+```
+    Client                    Server                     Database              Email
+      │                         │                           │                    │
+      │  1. POST /auth/         │                           │                    │
+      │     register            │                           │                    │
+      │  {fullName, email,      │                           │                    │
+      │   password, userType}   │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │                         │  INSERT user              │                    │
+      │                         │  (emailVerified=false)    │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │                           │                    │
+      │                         │  Generate 6-digit code    │                    │
+      │                         │  (15-min expiry)          │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │  INSERT email_            │                    │
+      │                         │  verification_tokens      │                    │
+      │                         │                           │                    │
+      │                         │  Send email (async)       │                    │
+      │                         │ ──────────────────────────│───────────────▶    │
+      │                         │                           │ HTML email with    │
+      │  ◀── JWT tokens +      │                           │ 6-digit code       │
+      │   "Verification code   │                           │                    │
+      │    sent to email"       │                           │                    │
+      │                         │                           │                    │
+      │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │─ ─ ─ ─ ─ ─ ─ ─   │
+      │  User reads code from email                        │                    │
+      │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │─ ─ ─ ─ ─ ─ ─ ─   │
+      │                         │                           │                    │
+      │  2. POST /auth/         │                           │                    │
+      │     verify-email        │                           │                    │
+      │  {email, code}          │                           │                    │
+      │ ────────────────────▶   │                           │                    │
+      │                         │  Find latest token        │                    │
+      │                         │  (unused, for user)       │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │                         │  Check: !expired          │                    │
+      │                         │  Check: attempts < 5      │                    │
+      │                         │  Check: code matches      │                    │
+      │                         │                           │                    │
+      │                         │  ✅ Mark token used       │                    │
+      │                         │  UPDATE user              │                    │
+      │                         │  emailVerified=true       │                    │
+      │                         │ ─────────────────────▶    │                    │
+      │  ◀── 200 "Email        │                           │                    │
+      │       verified"         │                           │                    │
+      │                         │                           │                    │
+
+     ┌───────────────────────────────────────────────────────────────┐
+     │ EMAIL VERIFICATION RULES                                     │
+     │                                                              │
+     │  • 6-digit numeric code (100000–999999)                      │
+     │  • Code expires after 15 minutes                             │
+     │  • Maximum 5 verification attempts per code                  │
+     │  • Wrong code increments attempt counter                     │
+     │  • Resend generates a new code & invalidates old ones        │
+     │  • OAuth2 users (Google/Apple) are auto-verified             │
+     │  • Already-verified users cannot re-verify or resend         │
+     │  • Email sent asynchronously (@Async) for fast response      │
+     └───────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. Password Reset Flow
 
 ```
     Client                    Server                     Database              Email
@@ -224,7 +291,7 @@
 
 ---
 
-## 5. JWT Security Filter Flow
+## 6. JWT Security Filter Flow
 
 ```
         ┌─────────────────────────────────────────────────────────┐
@@ -289,7 +356,7 @@
 
 ---
 
-## 6. Land Listing Lifecycle
+## 7. Land Listing Lifecycle
 
 ```
      ┌────────────┐        ┌───────────────────┐        ┌────────────┐
@@ -315,7 +382,7 @@
 
 ---
 
-## 7. Subscription Access Control
+## 8. Subscription Access Control
 
 ```
                           ┌────────────────┐
@@ -372,7 +439,7 @@
 
 ---
 
-## 8. OAuth2 Strategy Pattern
+## 9. OAuth2 Strategy Pattern
 
 ```
                        ┌──────────────────────┐
@@ -420,7 +487,7 @@
 
 ---
 
-## 9. Complete Endpoint Map
+## 10. Complete Endpoint Map
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -428,6 +495,8 @@
 │  🔓 PUBLIC ENDPOINTS                                                      │
 │  ─────────────────                                                        │
 │  POST   /api/v1/auth/register           Register new user                 │
+│  POST   /api/v1/auth/verify-email      Verify email (6-digit code)       │
+│  POST   /api/v1/auth/resend-verification Resend verification code        │
 │  POST   /api/v1/auth/login              Email/password login              │
 │  POST   /api/v1/auth/oauth2             Google/Apple OAuth2               │
 │  POST   /api/v1/auth/forgot-password    Request password reset            │
@@ -474,7 +543,7 @@
 
 ---
 
-## 10. Data Model Relationship Map
+## 11. Data Model Relationship Map
 
 ```
                            ┌──────────────────┐
@@ -548,7 +617,7 @@
 
 ---
 
-## 11. Testing Flow Sequence Diagram
+## 12. Testing Flow Sequence Diagram
 
 ```
     Client                     Server                    Database
@@ -556,8 +625,18 @@
       │  1. POST /auth/register  │                          │
       │ ─────────────────────▶   │                          │
       │                          │  INSERT user              │
+      │                          │  + verification code      │
       │                          │ ─────────────────────▶   │
-      │  ◀───── JWT tokens ───── │                          │
+      │  ◀───── JWT tokens ───── │  (+ email sent async)    │
+      │                          │                          │
+      │  1b. POST /auth/         │                          │
+      │      verify-email        │                          │
+      │  {email, 6-digit code}   │                          │
+      │ ─────────────────────▶   │                          │
+      │                          │  Verify code, set        │
+      │                          │  emailVerified=true      │
+      │                          │ ─────────────────────▶   │
+      │  ◀── 200 "verified" ─── │                          │
       │                          │                          │
       │  2. POST /auth/login     │                          │
       │ ─────────────────────▶   │                          │
@@ -628,7 +707,7 @@
 
 ---
 
-## 12. Error Flow
+## 13. Error Flow
 
 ```
                     ┌─────────────┐
