@@ -66,7 +66,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Get current user", description = "Get the currently authenticated user's profile")
+    @Operation(summary = "Get current user", description = "Get the currently authenticated user's profile including active listings count, total views, and subscription info")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@CurrentUser UserPrincipal userPrincipal) {
         UserResponse response = authService.getCurrentUser(userPrincipal);
         return ResponseEntity.ok(ApiResponse.success(response));

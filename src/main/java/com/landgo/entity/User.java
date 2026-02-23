@@ -45,6 +45,12 @@ public class User extends BaseEntity {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    @Column(name = "location", length = 200)
+    private String location;
+
+    @Column(name = "professional_bio", columnDefinition = "TEXT")
+    private String professionalBio;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false, length = 20)
     @Builder.Default

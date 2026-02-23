@@ -6,6 +6,7 @@ import com.landgo.dto.request.OAuth2Request;
 import com.landgo.dto.request.RegisterRequest;
 import com.landgo.dto.request.ResendVerificationRequest;
 import com.landgo.dto.request.ResetPasswordRequest;
+import com.landgo.dto.request.UpdateProfileRequest;
 import com.landgo.dto.request.VerifyEmailRequest;
 import com.landgo.dto.response.AuthResponse;
 import com.landgo.dto.response.UserResponse;
@@ -20,6 +21,7 @@ import com.landgo.exception.ResourceNotFoundException;
 import com.landgo.factory.OAuth2StrategyFactory;
 import com.landgo.mapper.UserMapper;
 import com.landgo.repository.EmailVerificationTokenRepository;
+import com.landgo.repository.LandRepository;
 import com.landgo.repository.PasswordResetTokenRepository;
 import com.landgo.repository.UserRepository;
 import com.landgo.security.JwtTokenProvider;
@@ -52,6 +54,7 @@ public class AuthService {
     private final OAuth2StrategyFactory oAuth2StrategyFactory;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final LandRepository landRepository;
     private final EmailService emailService;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -163,9 +166,65 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(UserPrincipal userPrincipal) {
-        User user = userRepository.findById(userPrincipal.getId())
+        User user = userRepository.findByIdWithSubscription(userPrincipal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return userMapper.toResponse(user);
+        return enrichUserResponse(user);
+    }
+
+    @Transactional
+    public UserResponse updateProfile(UserPrincipal userPrincipal, UpdateProfileRequest request) {
+        User user = userRepository.findByIdWithSubscription(userPrincipal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName());
+            // Also update firstName / lastName for backward compat
+            String[] parts = request.getFullName().trim().split("\\s+", 2);
+            user.setFirstName(parts[0]);
+            user.setLastName(parts.length > 1 ? parts[1] : "");
+        }
+
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone().isBlank() ? null : request.getPhone());
+        }
+
+        if (request.getProfileImageUrl() != null) {
+            user.setProfileImageUrl(request.getProfileImageUrl().isBlank() ? null : request.getProfileImageUrl());
+        }
+
+        if (request.getLocation() != null) {
+            user.setLocation(request.getLocation().isBlank() ? null : request.getLocation());
+        }
+
+        // professionalBio is optional — can be set or cleared
+        if (request.getProfessionalBio() != null) {
+            user.setProfessionalBio(request.getProfessionalBio().isBlank() ? null : request.getProfessionalBio());
+        }
+
+        user = userRepository.save(user);
+        log.info("Profile updated for user: {}", user.getEmail());
+        return enrichUserResponse(user);
+    }
+
+    private UserResponse enrichUserResponse(User user) {
+        UserResponse response = userMapper.toResponse(user);
+
+        // Populate listing stats if the user is a vendor/agent with a profile
+        if (user.canListLands()) {
+            response.setActiveListingsCount(landRepository.countActiveListingsByUserId(user.getId()));
+            response.setTotalViews(landRepository.sumViewCountByUserId(user.getId()));
+        } else {
+            response.setActiveListingsCount(0);
+            response.setTotalViews(0L);
+        }
+
+        // Populate subscription info
+        if (user.getSubscription() != null && user.getSubscription().isActive()) {
+            response.setSubscriptionPlan(user.getSubscription().getPlan());
+            response.setSubscriptionStatus(user.getSubscription().getStatus().name());
+        }
+
+        return response;
     }
 
     // ==========================================

@@ -2,6 +2,7 @@ package com.landgo.dto.response;
 
 import com.landgo.enums.AuthProvider;
 import com.landgo.enums.Role;
+import com.landgo.enums.SubscriptionPlan;
 import com.landgo.enums.UserType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,6 +26,8 @@ public class UserResponse {
     private String email;
     private String phone;
     private String profileImageUrl;
+    private String location;
+    private String professionalBio;
     private AuthProvider authProvider;
     private Role role;
     private boolean emailVerified;
@@ -35,6 +38,14 @@ public class UserResponse {
     private String agencyName;
     private String recoLicenseNumber;
     private boolean agentAuthorizationAccepted;
+
+    // Profile stats (populated for profile screen)
+    private Integer activeListingsCount;
+    private Long totalViews;
+
+    // Subscription info
+    private SubscriptionPlan subscriptionPlan;
+    private String subscriptionStatus;
 
     private LocalDateTime createdAt;
 }
