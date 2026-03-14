@@ -43,3 +43,6 @@ logs/
 
 # Test output
 test-output/
+
+#test
+*.sh
